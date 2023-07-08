@@ -18,6 +18,10 @@ impl<T> StateSet<T> {
         unsafe { Self::from_u64_unchecked(0) }
     }
 
+    /// Creates a new instance of [`StateSet`] from [`u64`] without checking the validity of the data.
+    ///
+    /// # Safety
+    /// The caller must ensure that `data` represent a valid state. It's up to the caller to ensure this. Misuse can lead to undefined behavior.
     #[inline]
     pub unsafe fn from_u64_unchecked(data: u64) -> Self {
         Self {
@@ -49,21 +53,27 @@ impl<T: StateIndexable> StateSet<T> {
     /// Insert a state into the set.
     #[inline]
     pub fn insert(&mut self, state: T) {
+        #[allow(clippy::let_unit_value)]
         let _ = T::CHECK_STATES_AT_MOST_64;
+
         self.data |= 1 << state.into_index();
     }
 
     /// Remove a state from the set.
     #[inline]
     pub fn remove(&mut self, state: T) {
+        #[allow(clippy::let_unit_value)]
         let _ = T::CHECK_STATES_AT_MOST_64;
+
         self.data &= !(1 << state.into_index());
     }
 
     /// Returns `true` if the set contains the given state.
     #[inline]
     pub fn contains(&self, state: T) -> bool {
+        #[allow(clippy::let_unit_value)]
         let _ = T::CHECK_STATES_AT_MOST_64;
+
         self.data & (1 << state.into_index()) != 0
     }
 }
@@ -80,9 +90,33 @@ impl<T: StateIndexable> TryFrom<u64> for StateSet<T> {
     type Error = ();
 
     /// Tries to convert a [`u64`] into a [`StateSet`].
+    ///
+    /// This method attempts to create a `StateSet` from a 64-bit unsigned integer. If the argument
+    /// represents a valid state (that is, the bits in positions greater than `T::STATES` are not set), the
+    /// method will return a [`StateSet`] wrapped in a [`Result::Ok`].
+    ///
+    /// If the `value` does not represent a valid state (bits in positions greater than `T::STATES` are set),
+    /// the method will return [`Result::Err(())`].
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use state_set::*;
+    ///
+    /// let s = StateSet::<bool>::try_from(0b10);
+    /// assert_eq!(s, Ok(state_set![true]));
+    ///
+    /// let s = StateSet::<bool>::try_from(0b11);
+    /// assert_eq!(s, Ok(state_set![false, true]));
+    ///
+    /// let s = StateSet::<bool>::try_from(0b100);
+    /// assert!(s.is_err());
+    /// ```
     #[inline]
     fn try_from(value: u64) -> Result<Self, Self::Error> {
+        #[allow(clippy::let_unit_value)]
         let _ = T::CHECK_STATES_AT_MOST_64;
+
         if value & !((1 << T::STATES) - 1) == 0 {
             Ok(unsafe { Self::from_u64_unchecked(value) })
         } else {
@@ -97,8 +131,10 @@ impl<T: StateIndexable> Not for StateSet<T> {
     /// Returns the complement of `self`.
     #[inline]
     fn not(self) -> Self::Output {
+        #[allow(clippy::let_unit_value)]
         let _ = T::CHECK_STATES_AT_MOST_64;
-        unsafe { Self::from_u64_unchecked(!self.data & (1 << T::STATES) - 1) }
+
+        unsafe { Self::from_u64_unchecked(!self.data & ((1 << T::STATES) - 1)) }
     }
 }
 
@@ -162,7 +198,9 @@ impl<T: StateIndexable> Sub for StateSet<T> {
     /// Returns the set difference of `self` and `rhs`.
     #[inline]
     fn sub(self, rhs: Self) -> Self::Output {
+        #[allow(clippy::let_unit_value)]
         let _ = T::CHECK_STATES_AT_MOST_64;
+
         self & !rhs
     }
 }
@@ -171,7 +209,9 @@ impl<T: StateIndexable> SubAssign for StateSet<T> {
     /// Replaces `self` with the set difference of `self` and `rhs`.
     #[inline]
     fn sub_assign(&mut self, rhs: Self) {
+        #[allow(clippy::let_unit_value)]
         let _ = T::CHECK_STATES_AT_MOST_64;
+
         *self &= !rhs;
     }
 }
@@ -271,11 +311,5 @@ mod test {
         let rhs = state_set![(false, false), (true, false)];
         set -= rhs;
         assert_eq!(set, state_set![(false, true)]);
-    }
-
-    #[test]
-    fn test() {
-        let mut x = StateSet::<[bool; 7]>::new();
-        x.insert(Default::default());
     }
 }

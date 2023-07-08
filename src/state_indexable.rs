@@ -1,19 +1,68 @@
 use std::mem::MaybeUninit;
 
 /// A trait for types having a finite number of possible states.
+///
+/// Each state of a type implementing this trait is indexed by an integer from `0` to `Self::STATES`.
+/// This traits provides methods for converting between values of the type and their indices.
 pub trait StateIndexable: Sized {
     /// The number of possible states that this type can be in.
+    ///
+    /// # Example
+    /// ```
+    /// use state_set::*;
+    ///
+    /// assert_eq!(<()>::STATES, 1);
+    /// assert_eq!(bool::STATES, 2);
+    /// assert_eq!(Option::<bool>::STATES, 3);
+    /// assert_eq!(<(bool, Option<bool>)>::STATES, 6);
+    /// assert_eq!(<[bool; 3]>::STATES, 8);
+    /// ```
     const STATES: u32;
 
+    /// A compile-time check to ensure that the number of states does not exceed 64.
+    ///
+    /// If `Self::STATES` is greater than 64, using this will fail to compile.
+    ///
+    /// # Example
+    /// ```
+    /// use state_set::*;
+    ///
+    /// <[bool; 5]>::CHECK_STATES_AT_MOST_64;
+    /// <[bool; 6]>::CHECK_STATES_AT_MOST_64;
+    /// ```
+    ///
+    /// ```compile_fail
+    /// use state_set::*;
+    ///
+    /// <[bool; 7]>::CHECK_STATES_AT_MOST_64;
+    /// ```
     const CHECK_STATES_AT_MOST_64: () = {
         let _ = 64 - Self::STATES;
-        ()
     };
 
     /// Converts `self` into an index, which is an integer from `0` to `Self::STATES - 1`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use state_set::*;
+    ///
+    /// assert_eq!(false.into_index(), 0);
+    /// assert_eq!(true.into_index(), 1);
+    /// ```
     fn into_index(self) -> u32;
 
     /// Converts `index` into a value of this type. Returns `None` if `index >= Self::STATUS`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use state_set::*;
+    ///
+    /// assert_eq!(bool::from_index(0), Some(false));
+    /// assert_eq!(bool::from_index(1), Some(true));
+    /// assert_eq!(bool::from_index(2), None);
+    /// ```
     #[inline]
     fn from_index(index: u32) -> Option<Self> {
         // SAFETY: `index` is less than `Self::STATES`.
@@ -24,6 +73,14 @@ pub trait StateIndexable: Sized {
     ///
     /// # Safety
     /// The caller must ensure that `index` is less than [`Self::STATES`].
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use state_set::*;
+    ///
+    /// assert_eq!(unsafe { bool::from_index(0) }, Some(false));
+    /// assert_eq!(unsafe { bool::from_index(1) }, Some(true));
     unsafe fn from_index_unchecked(index: u32) -> Self;
 }
 
