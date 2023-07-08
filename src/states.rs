@@ -2,45 +2,45 @@ use std::mem::MaybeUninit;
 
 /// A trait for types having a finite number of possible states.
 ///
-/// Each state of a type implementing this trait is indexed by an integer from `0` to `Self::STATES`.
+/// Each state of a type implementing this trait is indexed by an integer from `0` to `Self::NUM_STATES`.
 /// This traits provides methods for converting between values of the type and their indices.
-pub trait StateIndexable: Sized {
+pub trait States: Sized {
     /// The number of possible states that this type can be in.
     ///
     /// # Example
     /// ```
     /// use state_set::*;
     ///
-    /// assert_eq!(<()>::STATES, 1);
-    /// assert_eq!(bool::STATES, 2);
-    /// assert_eq!(Option::<bool>::STATES, 3);
-    /// assert_eq!(<(bool, Option<bool>)>::STATES, 6);
-    /// assert_eq!(<[bool; 3]>::STATES, 8);
+    /// assert_eq!(<()>::NUM_STATES, 1);
+    /// assert_eq!(bool::NUM_STATES, 2);
+    /// assert_eq!(Option::<bool>::NUM_STATES, 3);
+    /// assert_eq!(<(bool, Option<bool>)>::NUM_STATES, 6);
+    /// assert_eq!(<[bool; 3]>::NUM_STATES, 8);
     /// ```
-    const STATES: u32;
+    const NUM_STATES: u32;
 
     /// A compile-time check to ensure that the number of states does not exceed 64.
     ///
-    /// If `Self::STATES` is greater than 64, using this will fail to compile.
+    /// If `Self::NUM_STATES` is greater than 64, using this will fail to compile.
     ///
     /// # Example
     /// ```
     /// use state_set::*;
     ///
-    /// <[bool; 5]>::CHECK_STATES_AT_MOST_64;
-    /// <[bool; 6]>::CHECK_STATES_AT_MOST_64;
+    /// <[bool; 5]>::CHECK_NUM_STATES_AT_MOST_64; // 2^5 = 32 <= 64
+    /// <[bool; 6]>::CHECK_NUM_STATES_AT_MOST_64; // 2^6 = 64 <= 64
     /// ```
     ///
     /// ```compile_fail
     /// use state_set::*;
     ///
-    /// <[bool; 7]>::CHECK_STATES_AT_MOST_64;
+    /// <[bool; 7]>::CHECK_NUM_STATES_AT_MOST_64; // 2^7 = 128 > 64
     /// ```
-    const CHECK_STATES_AT_MOST_64: () = {
-        let _ = 64 - Self::STATES;
+    const CHECK_NUM_STATES_AT_MOST_64: () = {
+        let _ = 64 - Self::NUM_STATES;
     };
 
-    /// Converts `self` into an index, which is an integer from `0` to `Self::STATES - 1`.
+    /// Converts `self` into an index, which is an integer from `0` to `Self::NUM_STATES - 1`.
     ///
     /// # Examples
     ///
@@ -65,14 +65,14 @@ pub trait StateIndexable: Sized {
     /// ```
     #[inline]
     fn from_index(index: u32) -> Option<Self> {
-        // SAFETY: `index` is less than `Self::STATES`.
-        (index < Self::STATES).then(|| unsafe { Self::from_index_unchecked(index) })
+        // SAFETY: `index` is less than `Self::NUM_STATES`.
+        (index < Self::NUM_STATES).then(|| unsafe { Self::from_index_unchecked(index) })
     }
 
     /// Converts `index` into a value of this type without checking that `index` is valid.
     ///
     /// # Safety
-    /// The caller must ensure that `index` is less than [`Self::STATES`].
+    /// The caller must ensure that `index` is less than [`Self::NUM_STATES`].
     ///
     /// # Examples
     ///
@@ -84,8 +84,8 @@ pub trait StateIndexable: Sized {
     unsafe fn from_index_unchecked(index: u32) -> Self;
 }
 
-impl StateIndexable for bool {
-    const STATES: u32 = 2;
+impl States for bool {
+    const NUM_STATES: u32 = 2;
 
     #[inline]
     fn into_index(self) -> u32 {
@@ -98,21 +98,21 @@ impl StateIndexable for bool {
     }
 }
 
-impl<T: StateIndexable, const N: usize> StateIndexable for [T; N] {
-    const STATES: u32 = T::STATES.pow(N as u32);
+impl<T: States, const N: usize> States for [T; N] {
+    const NUM_STATES: u32 = T::NUM_STATES.pow(N as u32);
 
     #[inline]
     fn into_index(self) -> u32 {
         self.into_iter()
-            .fold(0, |index, state| index * T::STATES + state.into_index())
+            .fold(0, |index, state| index * T::NUM_STATES + state.into_index())
     }
 
     #[inline]
     unsafe fn from_index_unchecked(mut index: u32) -> Self {
         let mut array: [MaybeUninit<T>; N] = MaybeUninit::uninit().assume_init();
         for state in array.iter_mut().rev() {
-            state.write(T::from_index_unchecked(index % T::STATES));
-            index /= T::STATES;
+            state.write(T::from_index_unchecked(index % T::NUM_STATES));
+            index /= T::NUM_STATES;
         }
 
         // The following is equivalent to `std::mem::transmute::<_, [T; N]>(states)`,
@@ -126,8 +126,8 @@ impl<T: StateIndexable, const N: usize> StateIndexable for [T; N] {
 
 macro_rules! tuple_impl {
     ($($T:ident)*) => {
-        impl<$($T: StateIndexable),*> StateIndexable for ($($T,)*) {
-            const STATES: u32 = 1 $(* $T::STATES)*;
+        impl<$($T: States),*> States for ($($T,)*) {
+            const NUM_STATES: u32 = 1 $(* $T::NUM_STATES)*;
 
             #[allow(non_snake_case, unconditional_recursion, unused_mut, unused_parens)]
             #[inline]
@@ -135,7 +135,7 @@ macro_rules! tuple_impl {
                 let ($($T),*) = self;
                 let mut index = 0;
                 $(
-                    index = index * $T::STATES + $T.into_index();
+                    index = index * $T::NUM_STATES + $T.into_index();
                 )*
                 index
             }
@@ -143,10 +143,10 @@ macro_rules! tuple_impl {
             #[allow(unused_assignments, unused_mut, unused_variables, clippy::unused_unit)]
             #[inline]
             unsafe fn from_index_unchecked(mut index: u32) -> Self {
-                let mut base = Self::STATES;
+                let mut base = Self::NUM_STATES;
                 ($(
                     {
-                        base /= $T::STATES;
+                        base /= $T::NUM_STATES;
                         let value = <$T>::from_index_unchecked(index / base);
                         index %= base;
                         value
@@ -177,8 +177,8 @@ tuple_impl!(A B C D E F G H I J K L M N O P);
 
 macro_rules! singleton_impl {
     ($ty:ty) => {
-        impl StateIndexable for $ty {
-            const STATES: u32 = 1;
+        impl States for $ty {
+            const NUM_STATES: u32 = 1;
 
             #[inline]
             fn into_index(self) -> u32 {
@@ -195,8 +195,8 @@ macro_rules! singleton_impl {
 
 macro_rules! enum_impl {
     ($ty:ty, $states:expr $(, $variant:ident = $index:expr)*) => {
-        impl StateIndexable for $ty {
-            const STATES: u32 = $states;
+        impl States for $ty {
+            const NUM_STATES: u32 = $states;
 
             #[inline]
             fn into_index(self) -> u32 {
@@ -216,8 +216,8 @@ macro_rules! enum_impl {
     };
 }
 
-impl<T: StateIndexable> StateIndexable for Option<T> {
-    const STATES: u32 = 1 + T::STATES;
+impl<T: States> States for Option<T> {
+    const NUM_STATES: u32 = 1 + T::NUM_STATES;
 
     #[inline]
     fn into_index(self) -> u32 {
@@ -230,20 +230,20 @@ impl<T: StateIndexable> StateIndexable for Option<T> {
     }
 }
 
-impl<T: StateIndexable, E: StateIndexable> StateIndexable for Result<T, E> {
-    const STATES: u32 = T::STATES + E::STATES;
+impl<T: States, E: States> States for Result<T, E> {
+    const NUM_STATES: u32 = T::NUM_STATES + E::NUM_STATES;
 
     #[inline]
     fn into_index(self) -> u32 {
-        self.map_or_else(|e| T::STATES + e.into_index(), |v| v.into_index())
+        self.map_or_else(|e| T::NUM_STATES + e.into_index(), |v| v.into_index())
     }
 
     #[inline]
     unsafe fn from_index_unchecked(index: u32) -> Self {
-        if index < T::STATES {
+        if index < T::NUM_STATES {
             Self::Ok(T::from_index_unchecked(index))
         } else {
-            Self::Err(E::from_index_unchecked(index - T::STATES))
+            Self::Err(E::from_index_unchecked(index - T::NUM_STATES))
         }
     }
 }
@@ -252,17 +252,17 @@ impl<T: StateIndexable, E: StateIndexable> StateIndexable for Result<T, E> {
 singleton_impl!(std::alloc::System);
 
 // std::cmp
-impl<T: StateIndexable> StateIndexable for std::cmp::Reverse<T> {
-    const STATES: u32 = T::STATES;
+impl<T: States> States for std::cmp::Reverse<T> {
+    const NUM_STATES: u32 = T::NUM_STATES;
 
     #[inline]
     fn into_index(self) -> u32 {
-        Self::STATES - self.0.into_index() - 1
+        Self::NUM_STATES - self.0.into_index() - 1
     }
 
     #[inline]
     unsafe fn from_index_unchecked(index: u32) -> Self {
-        Self(T::from_index_unchecked(Self::STATES - index - 1))
+        Self(T::from_index_unchecked(Self::NUM_STATES - index - 1))
     }
 }
 
@@ -276,11 +276,11 @@ singleton_impl!(std::fmt::Error);
 enum_impl!(std::fmt::Alignment, 3, Left = 0, Right = 1, Center = 2);
 
 // std::marker
-impl<T> StateIndexable for std::marker::PhantomData<T>
+impl<T> States for std::marker::PhantomData<T>
 where
     T: ?Sized,
 {
-    const STATES: u32 = 1;
+    const NUM_STATES: u32 = 1;
 
     #[inline]
     fn into_index(self) -> u32 {
@@ -310,23 +310,23 @@ enum_impl!(
 );
 
 // std::ops
-impl<B: StateIndexable, C: StateIndexable> StateIndexable for std::ops::ControlFlow<B, C> {
-    const STATES: u32 = B::STATES + C::STATES;
+impl<B: States, C: States> States for std::ops::ControlFlow<B, C> {
+    const NUM_STATES: u32 = B::NUM_STATES + C::NUM_STATES;
 
     #[inline]
     fn into_index(self) -> u32 {
         match self {
             Self::Continue(c) => c.into_index(),
-            Self::Break(b) => C::STATES + b.into_index(),
+            Self::Break(b) => C::NUM_STATES + b.into_index(),
         }
     }
 
     #[inline]
     unsafe fn from_index_unchecked(index: u32) -> Self {
-        if index < C::STATES {
+        if index < C::NUM_STATES {
             Self::Continue(C::from_index_unchecked(index))
         } else {
-            Self::Break(B::from_index_unchecked(index - C::STATES))
+            Self::Break(B::from_index_unchecked(index - C::NUM_STATES))
         }
     }
 }
@@ -337,8 +337,8 @@ mod test {
 
     use super::*;
 
-    fn check<T: Clone + Debug + PartialEq + StateIndexable>(states: &[T]) {
-        assert_eq!(T::STATES, states.len() as u32);
+    fn check<T: Clone + Debug + PartialEq + States>(states: &[T]) {
+        assert_eq!(T::NUM_STATES, states.len() as u32);
         for (i, state) in states.iter().enumerate() {
             assert_eq!(state.clone().into_index(), i as u32);
             assert_eq!(T::from_index(i as u32), Some(state.clone()));
@@ -381,10 +381,10 @@ mod test {
 
     #[test]
     fn array_states() {
-        assert_eq!(<[bool; 0]>::STATES, 1);
-        assert_eq!(<[bool; 1]>::STATES, 2);
-        assert_eq!(<[bool; 10]>::STATES, 1024);
-        assert_eq!(<[bool; 31]>::STATES, 1 << 31);
+        assert_eq!(<[bool; 0]>::NUM_STATES, 1);
+        assert_eq!(<[bool; 1]>::NUM_STATES, 2);
+        assert_eq!(<[bool; 10]>::NUM_STATES, 1024);
+        assert_eq!(<[bool; 31]>::NUM_STATES, 1 << 31);
     }
 
     #[test]

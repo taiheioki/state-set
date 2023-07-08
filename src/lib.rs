@@ -1,5 +1,5 @@
-mod state_indexable;
-pub use crate::state_indexable::StateIndexable;
+mod states;
+pub use crate::states::States;
 
 mod state_set;
 pub use crate::state_set::StateSet;
