@@ -5,7 +5,12 @@ pub trait StateIndexable: Sized {
     /// The number of possible states that this type can be in.
     const STATES: u32;
 
-    /// Converts `self` into an index.
+    const CHECK_STATES_AT_MOST_64: () = {
+        let _ = 64 - Self::STATES;
+        ()
+    };
+
+    /// Converts `self` into an index, which is an integer from `0` to `Self::STATES - 1`.
     fn into_index(self) -> u32;
 
     /// Converts `index` into a value of this type. Returns `None` if `index >= Self::STATUS`.
