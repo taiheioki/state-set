@@ -5,7 +5,11 @@ use std::{
 };
 
 #[cfg(feature = "serde")]
-use serde::{Deserialize, Serialize};
+use serde::{
+    de::{SeqAccess, Visitor},
+    ser::SerializeSeq,
+    Deserialize, Deserializer, Serialize, Serializer,
+};
 
 use crate::State;
 
@@ -14,7 +18,6 @@ use crate::State;
 /// This struct manages a set of states for a type `T` that implements [`State`].
 /// It uses a [`u64`] as a bit vector to store the presence of states, where each bit represents a state.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct StateSet<T> {
     data: u64,
     phantom: PhantomData<T>,
@@ -277,6 +280,44 @@ impl<T: State> Extend<T> for StateSet<T> {
     }
 }
 
+#[cfg(feature = "serde")]
+impl<T: State + Serialize> Serialize for StateSet<T> {
+    #[inline]
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        let mut seq = serializer.serialize_seq(Some(self.len() as usize))?;
+        for state in self.iter() {
+            seq.serialize_element(&state)?;
+        }
+        seq.end()
+    }
+}
+
+#[cfg(feature = "serde")]
+struct DeserializeVisitor<T>(PhantomData<T>);
+
+#[cfg(feature = "serde")]
+impl<'de, T: State + Deserialize<'de>> Visitor<'de> for DeserializeVisitor<T> {
+    type Value = StateSet<T>;
+
+    #[inline]
+    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        formatter.write_str("a sequence of states")
+    }
+
+    #[inline]
+    fn visit_seq<S: SeqAccess<'de>>(self, mut seq: S) -> Result<Self::Value, S::Error> {
+        Ok(std::iter::from_fn(|| seq.next_element().transpose()).collect::<Result<_, _>>()?)
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de, T: State + Deserialize<'de>> Deserialize<'de> for StateSet<T> {
+    #[inline]
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        deserializer.deserialize_seq(DeserializeVisitor(PhantomData))
+    }
+}
+
 /// A macro for creating a [`StateSet`] from a list of states.
 ///
 /// # Examples
@@ -511,5 +552,17 @@ mod test {
         assert_eq!(iter.next(), Some((false, false)));
         assert_eq!(iter.next(), Some((false, true)));
         assert_eq!(iter.next(), None);
+    }
+
+    #[cfg(feature = "serde")]
+    #[test]
+    fn serde() {
+        let set = state_set![(false, false), (false, true)];
+
+        let j = serde_json::to_value(&set).unwrap();
+        assert_eq!(j, serde_json::json!([(false, false), (false, true)]));
+
+        let set_deserialized: StateSet<(bool, bool)> = serde_json::from_value(j).unwrap();
+        assert_eq!(set, set_deserialized);
     }
 }

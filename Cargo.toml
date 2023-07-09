@@ -11,6 +11,9 @@ edition = "2021"
 state-derive = { path = "./state-derive", optional = true }
 serde = { version = "1.0", optional = true, features = ["derive"] }
 
+[dev-dependencies]
+serde_json = "1.0"
+
 [features]
 derive = ["state-derive"]
 serde = ["dep:serde"]
