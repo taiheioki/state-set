@@ -292,7 +292,7 @@ impl<T: State> Extend<T> for StateSet<T> {
 macro_rules! state_set {
     ($($state:expr),* $(,)?) => {{
         #[allow(unused_mut)]
-        let mut set = StateSet::new();
+        let mut set = $crate::StateSet::new();
         $(set.insert($state);)*
         set
     }};
