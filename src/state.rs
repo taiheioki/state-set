@@ -1,5 +1,7 @@
 use std::mem::MaybeUninit;
 
+use crate::StateSet;
+
 /// A trait for types having a finite number of possible states.
 ///
 /// Each state of a type implementing this trait is indexed by an integer from `0` to [`Self::NUM_STATES`].
@@ -69,6 +71,20 @@ pub trait State: Sized {
     /// assert_eq!(unsafe { bool::from_index(0) }, Some(false));
     /// assert_eq!(unsafe { bool::from_index(1) }, Some(true));
     unsafe fn from_index_unchecked(index: u32) -> Self;
+
+    /// Creates a new [`StateSet<Self>`] consisting of all the states.
+    ///
+    /// # Example
+    /// ```
+    /// # use state_set::*;
+    /// #
+    /// let set = StateSet::<bool>::all();
+    /// assert_eq!(set, state_set![false, true]);
+    /// ```
+    #[inline]
+    fn all() -> StateSet<Self> {
+        !StateSet::new()
+    }
 }
 
 impl State for bool {

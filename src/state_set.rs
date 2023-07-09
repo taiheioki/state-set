@@ -101,22 +101,6 @@ impl<T> StateSet<T> {
 }
 
 impl<T: State> StateSet<T> {
-    /// Creates a new [`StateSet`] consisting of all the states.
-    ///
-    /// # Example
-    /// ```
-    /// # use state_set::*;
-    /// let set = StateSet::<bool>::all();
-    /// assert_eq!(set, state_set![false, true]);
-    /// ```
-    #[inline]
-    pub const fn all() -> Self {
-        #[allow(clippy::let_unit_value)]
-        let _ = T::CHECK_NUM_STATES_AT_MOST_64;
-
-        unsafe { Self::from_u64_unchecked((1 << T::NUM_STATES) - 1) }
-    }
-
     /// Insert a state into the set.
     ///
     /// # Examples
@@ -437,7 +421,7 @@ impl<T: State> Extend<T> for StateSet<T> {
     /// assert_eq!(set, state_set![false, true]);
     /// ```
     #[inline]
-    fn extend<I: IntoIterator<Item = T>>(&mut self, iter: impl) {
+    fn extend<I: IntoIterator<Item = T>>(&mut self, iter: I) {
         for state in iter {
             self.insert(state);
         }
@@ -681,7 +665,7 @@ mod test {
         assert_eq!(StateSet::<bool>::from_index(0), Some(state_set![]));
         assert_eq!(StateSet::<bool>::from_index(1), Some(state_set![false]));
         assert_eq!(StateSet::<bool>::from_index(2), Some(state_set![true]));
-        assert_eq!(StateSet::<bool>::from_index(3), Some(StateSet::all()));
+        assert_eq!(StateSet::<bool>::from_index(3), Some(bool::all()));
     }
 
     #[test]
