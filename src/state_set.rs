@@ -306,7 +306,7 @@ impl<'de, T: State + Deserialize<'de>> Visitor<'de> for DeserializeVisitor<T> {
 
     #[inline]
     fn visit_seq<S: SeqAccess<'de>>(self, mut seq: S) -> Result<Self::Value, S::Error> {
-        Ok(std::iter::from_fn(|| seq.next_element().transpose()).collect::<Result<_, _>>()?)
+        std::iter::from_fn(|| seq.next_element().transpose()).collect::<Result<_, _>>()
     }
 }
 
@@ -559,7 +559,7 @@ mod test {
     fn serde() {
         let set = state_set![(false, false), (false, true)];
 
-        let j = serde_json::to_value(&set).unwrap();
+        let j = serde_json::to_value(set).unwrap();
         assert_eq!(j, serde_json::json!([(false, false), (false, true)]));
 
         let set_deserialized: StateSet<(bool, bool)> = serde_json::from_value(j).unwrap();
