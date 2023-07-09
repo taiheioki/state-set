@@ -21,6 +21,7 @@ pub(crate) fn derive_states_impl(input: &DeriveInput) -> TokenStream {
 
     let num_states = num_states(&ctx);
     let into_index_body = into_index_body(&ctx);
+    let from_index_unchecked_body = from_index_unchecked_body(&ctx);
 
     quote! {
         #[automatically_derived]
@@ -34,8 +35,7 @@ pub(crate) fn derive_states_impl(input: &DeriveInput) -> TokenStream {
 
             #[inline]
             unsafe fn from_index_unchecked(index: u32) -> Self {
-                // #from_index_unchecked_body
-                todo!()
+                #from_index_unchecked_body
             }
         }
     }
@@ -207,4 +207,77 @@ fn into_index_body_from_fields(
         .collect();
 
     quote! { #( #terms+ )* 0 }
+}
+
+fn from_index_unchecked_body(ctx: &Context) -> TokenStream {
+    match &ctx.input.data {
+        Data::Enum(data_enum) => {
+            let mut base = quote! { 0 };
+
+            let arms: Vec<_> = data_enum
+                .variants
+                .iter()
+                .map(|variant| {
+                    let variant_ident = &variant.ident;
+                    let num_states = num_states_from_fields(ctx, &variant.fields);
+                    let next_base = quote! { #base + #num_states };
+                    let fields_init = fields_init_list(ctx, &variant.fields);
+                    let arm = quote! {
+                        index if index < #next_base => {
+                            let index = index - (#base);
+                            Self::#variant_ident #fields_init
+                        }
+                    };
+                    base = next_base;
+                    arm
+                })
+                .collect();
+
+            quote! {
+                match index {
+                    #(#arms,)*
+                    _ => unreachable!(),
+                }
+            }
+        }
+        Data::Struct(data_struct) => {
+            let fields_init = fields_init_list(ctx, &data_struct.fields);
+            quote! { Self #fields_init }
+        }
+        Data::Union(_) => {
+            Error::new_spanned(ctx.input, "union is not supported").to_compile_error()
+        }
+    }
+}
+
+fn fields_init_list(ctx: &Context, fields: &Fields) -> TokenStream {
+    let state_set = ctx.state_set;
+    let mut base = quote! { 1 };
+
+    match fields {
+        Fields::Named(fields) => {
+            let mut fields: Vec<_> = fields.named.iter().rev().map(|field| {
+                let field_ident = field.ident.as_ref().unwrap();
+                let field_type = &field.ty;
+                let num_states = quote! { <#field_type as #state_set::States>::NUM_STATES };
+                let result = quote! { #field_ident: <#field_type as #state_set::States>::from_index_unchecked((index / (#base)) % #num_states) };
+                base = quote! { #base * #num_states };
+                result
+            }).collect();
+            fields.reverse();
+            quote! { { #(#fields),* } }
+        }
+        Fields::Unnamed(fields) => {
+            let mut fields: Vec<_> = fields.unnamed.iter().rev().map(|field| {
+                let field_type = &field.ty;
+                let num_states = quote! { <#field_type as #state_set::States>::NUM_STATES };
+                let result = quote! { <#field_type as #state_set::States>::from_index_unchecked((index / (#base)) % #num_states) };
+                base = quote! { #base * #num_states };
+                result
+            }).collect();
+            fields.reverse();
+            quote! { ( #(#fields),* ) }
+        }
+        Fields::Unit => quote! {},
+    }
 }
