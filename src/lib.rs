@@ -14,8 +14,8 @@
 //! # Examples
 //! Here is a basic usage example of `state-set`.
 //! ```
-//! use state_set::*;
-//!
+//! # use state_set::*;
+//! #
 //! #[derive(State)]
 //! enum Example {
 //!     A,
@@ -48,8 +48,8 @@ pub use crate::state_set::{IntoIter, InvalidStateSetError, Iter, StateSet};
 /// # Example
 ///
 /// ```
-/// use state_set::*;
-///
+/// # use state_set::*;
+/// #
 /// #[derive(State)]
 /// enum MyEnum {
 ///     A,
@@ -73,8 +73,8 @@ pub use state_derive::State;
 ///
 /// # Examples
 /// ```
-/// use state_set::*;
-///
+/// # use state_set::*;
+/// #
 /// let set = state_set![(false, false), (true, true)];
 /// assert_eq!(set.len(), 2);
 /// assert!(set.contains((false, false)));

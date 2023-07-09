@@ -12,8 +12,8 @@ pub trait State: Sized {
     ///
     /// # Example
     /// ```
-    /// use state_set::*;
-    ///
+    /// # use state_set::*;
+    /// #
     /// assert_eq!(<()>::NUM_STATES, 1);
     /// assert_eq!(bool::NUM_STATES, 2);
     /// assert_eq!(Option::<bool>::NUM_STATES, 3);
@@ -28,15 +28,15 @@ pub trait State: Sized {
     ///
     /// # Example
     /// ```
-    /// use state_set::*;
-    ///
+    /// # use state_set::*;
+    /// #
     /// <[bool; 5]>::CHECK_NUM_STATES_AT_MOST_64; // 2^5 = 32 <= 64
     /// <[bool; 6]>::CHECK_NUM_STATES_AT_MOST_64; // 2^6 = 64 <= 64
     /// ```
     ///
     /// ```compile_fail
-    /// use state_set::*;
-    ///
+    /// # use state_set::*;
+    /// #
     /// <[bool; 7]>::CHECK_NUM_STATES_AT_MOST_64; // 2^7 = 128 > 64
     /// ```
     const CHECK_NUM_STATES_AT_MOST_64: () = {
@@ -48,8 +48,8 @@ pub trait State: Sized {
     /// # Examples
     ///
     /// ```
-    /// use state_set::*;
-    ///
+    /// # use state_set::*;
+    /// #
     /// assert_eq!(false.into_index(), 0);
     /// assert_eq!(true.into_index(), 1);
     /// ```
@@ -60,8 +60,8 @@ pub trait State: Sized {
     /// # Examples
     ///
     /// ```
-    /// use state_set::*;
-    ///
+    /// # use state_set::*;
+    /// #
     /// assert_eq!(bool::from_index(0), Some(false));
     /// assert_eq!(bool::from_index(1), Some(true));
     /// assert_eq!(bool::from_index(2), None);
@@ -80,8 +80,8 @@ pub trait State: Sized {
     /// # Examples
     ///
     /// ```
-    /// use state_set::*;
-    ///
+    /// # use state_set::*;
+    /// #
     /// assert_eq!(unsafe { bool::from_index(0) }, Some(false));
     /// assert_eq!(unsafe { bool::from_index(1) }, Some(true));
     unsafe fn from_index_unchecked(index: u32) -> Self;

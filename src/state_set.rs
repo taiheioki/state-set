@@ -50,8 +50,7 @@ impl<T> StateSet<T> {
     ///
     /// # Examples
     /// ```
-    /// use state_set::*;
-    ///
+    /// # use state_set::*;
     /// let set = state_set![(false, false), (true, true)];
     /// assert_eq!(set.len(), 2);
     /// ```
@@ -64,7 +63,7 @@ impl<T> StateSet<T> {
     ///
     /// # Examples
     /// ```
-    /// use state_set::*;
+    /// # use state_set::*;
     ///
     /// let set = StateSet::<bool>::new();
     /// assert!(set.is_empty());
@@ -81,8 +80,7 @@ impl<T> StateSet<T> {
     ///
     /// # Examples
     /// ```
-    /// use state_set::*;
-    ///
+    /// # use state_set::*;
     /// let mut set = state_set![false, true];
     /// set.clear();
     /// assert!(set.is_empty());
@@ -107,8 +105,7 @@ impl<T: State> StateSet<T> {
     ///
     /// # Example
     /// ```
-    /// use state_set::*;
-    ///
+    /// # use state_set::*;
     /// let set = StateSet::<bool>::all();
     /// assert_eq!(set, state_set![false, true]);
     /// ```
@@ -124,8 +121,8 @@ impl<T: State> StateSet<T> {
     ///
     /// # Examples
     /// ```
-    /// use state_set::*;
-    ///
+    /// # use state_set::*;
+    /// #
     /// let mut set = StateSet::new();
     /// set.insert(false);
     /// assert!(set.contains(false));
@@ -142,8 +139,8 @@ impl<T: State> StateSet<T> {
     ///
     /// # Examples
     /// ```
-    /// use state_set::*;
-    ///
+    /// # use state_set::*;
+    /// #
     /// let mut set = state_set![false, true];
     /// set.remove(true);
     /// assert!(!set.contains(true));
@@ -160,8 +157,8 @@ impl<T: State> StateSet<T> {
     ///
     /// # Examples
     /// ```
-    /// use state_set::*;
-    ///
+    /// # use state_set::*;
+    /// #
     /// let set = state_set![false];
     /// assert!(set.contains(false));
     /// assert!(!set.contains(true));
@@ -180,8 +177,8 @@ impl<T> From<StateSet<T>> for u64 {
     ///
     /// # Examples
     /// ```
-    /// use state_set::*;
-    ///
+    /// # use state_set::*;
+    /// #
     /// let set = state_set![false, true];
     /// let data: u64 = set.into();
     /// assert_eq!(data, 0b11);
@@ -199,8 +196,8 @@ impl<T> From<StateSet<T>> for u64 {
 /// # Example
 ///
 /// ```
-/// use state_set::*;
-///
+/// # use state_set::*;
+/// #
 /// let result = StateSet::<bool>::try_from(0b100);
 /// assert!(result.is_err());
 /// ```
@@ -224,8 +221,8 @@ impl<T: State> TryFrom<u64> for StateSet<T> {
     /// # Examples
     ///
     /// ```
-    /// use state_set::*;
-    ///
+    /// # use state_set::*;
+    /// #
     /// let s = StateSet::<bool>::try_from(0b10);
     /// assert_eq!(s, Ok(state_set![true]));
     ///
@@ -255,8 +252,8 @@ impl<T: State> Not for StateSet<T> {
     ///
     /// # Examples
     /// ```
-    /// use state_set::*;
-    ///
+    /// # use state_set::*;
+    /// #
     /// let set = state_set![false];
     /// assert_eq!(!set, state_set![true]);
     /// ```
@@ -276,8 +273,8 @@ impl<T> BitAnd for StateSet<T> {
     ///
     /// # Examples
     /// ```
-    /// use state_set::*;
-    ///
+    /// # use state_set::*;
+    /// #
     /// let lhs = state_set![(false, false), (false, true)];
     /// let rhs = state_set![(false, true), (true, false)];
     /// assert_eq!(lhs & rhs, state_set![(false, true)]);
@@ -293,8 +290,8 @@ impl<T> BitAndAssign for StateSet<T> {
     ///
     /// # Examples
     /// ```
-    /// use state_set::*;
-    ///
+    /// # use state_set::*;
+    /// #
     /// let mut set = state_set![(false, false), (false, true)];
     /// set &= state_set![(false, true), (true, false)];
     /// assert_eq!(set, state_set![(false, true)]);
@@ -312,8 +309,8 @@ impl<T> BitOr for StateSet<T> {
     ///
     /// # Examples
     /// ```
-    /// use state_set::*;
-    ///
+    /// # use state_set::*;
+    /// #
     /// let lhs = state_set![(false, false), (false, true)];
     /// let rhs = state_set![(false, true), (true, false)];
     /// assert_eq!(lhs | rhs, state_set![(false, false), (false, true), (true, false)]);
@@ -329,8 +326,8 @@ impl<T> BitOrAssign for StateSet<T> {
     ///
     /// # Examples
     /// ```
-    /// use state_set::*;
-    ///
+    /// # use state_set::*;
+    /// #
     /// let mut set = state_set![(false, false), (false, true)];
     /// set |= state_set![(false, true), (true, false)];
     /// assert_eq!(set, state_set![(false, false), (false, true), (true, false)]);
@@ -348,8 +345,8 @@ impl<T> BitXor for StateSet<T> {
     ///
     /// # Examples
     /// ```
-    /// use state_set::*;
-    ///
+    /// # use state_set::*;
+    /// #
     /// let lhs = state_set![(false, false), (false, true)];
     /// let rhs = state_set![(false, true), (true, false)];
     /// assert_eq!(lhs ^ rhs, state_set![(false, false), (true, false)]);
@@ -365,8 +362,8 @@ impl<T> BitXorAssign for StateSet<T> {
     ///
     /// # Examples
     /// ```
-    /// use state_set::*;
-    ///
+    /// # use state_set::*;
+    /// #
     /// let mut set = state_set![(false, false), (false, true)];
     /// set ^= state_set![(false, true), (true, false)];
     /// assert_eq!(set, state_set![(false, false), (true, false)]);
@@ -384,8 +381,8 @@ impl<T: State> Sub for StateSet<T> {
     ///
     /// # Examples
     /// ```
-    /// use state_set::*;
-    ///
+    /// # use state_set::*;
+    /// #
     /// let lhs = state_set![(false, false), (false, true)];
     /// let rhs = state_set![(false, true), (true, false)];
     /// assert_eq!(lhs - rhs, state_set![(false, false)]);
@@ -404,8 +401,8 @@ impl<T: State> SubAssign for StateSet<T> {
     ///
     /// # Examples
     /// ```
-    /// use state_set::*;
-    ///
+    /// # use state_set::*;
+    /// #
     /// let mut set = state_set![(false, false), (false, true)];
     /// set -= state_set![(false, true), (true, false)];
     /// assert_eq!(set, state_set![(false, false)]);
@@ -425,8 +422,8 @@ impl<T: State> FromIterator<T> for StateSet<T> {
     /// # Examples
     ///
     /// ```
-    /// use state_set::*;
-    ///
+    /// # use state_set::*;
+    /// #
     /// let set = StateSet::from_iter((0..2).map(|i| i.cmp(&1)));
     /// assert_eq!(set, state_set![std::cmp::Ordering::Less, std::cmp::Ordering::Equal]);
     /// ```
@@ -446,8 +443,8 @@ impl<T: State> Extend<T> for StateSet<T> {
     /// # Examples
     ///
     /// ```
-    /// use state_set::*;
-    ///
+    /// # use state_set::*;
+    /// #
     /// let mut set = state_set![false];
     /// set.extend([true, false].iter().copied());
     /// assert_eq!(set, state_set![false, true]);
@@ -536,7 +533,7 @@ impl<T: State> IntoIterator for StateSet<T> {
 /// # Example
 ///
 /// ```
-/// use state_set::*;
+/// # use state_set::*;
 ///
 /// let s = state_set![true, false];
 /// let mut iter = s.iter();
@@ -601,8 +598,8 @@ impl<'a, T: State> FusedIterator for Iter<'a, T> {}
 /// # Example
 ///
 /// ```
-/// use state_set::*;
-///
+/// # use state_set::*;
+/// #
 /// let s = state_set![true, false];
 /// let mut iter = s.into_iter();
 ///
