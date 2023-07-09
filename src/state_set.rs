@@ -1,13 +1,14 @@
 use std::{
+    iter::FusedIterator,
     marker::PhantomData,
     ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Not, Sub, SubAssign},
 };
 
-use crate::States;
+use crate::State;
 
 /// A set of states represented by a bit vector.
 ///
-/// This struct manages a set of states for a type `T` that implements [`StateIndexable`].
+/// This struct manages a set of states for a type `T` that implements [`States`].
 /// It uses a [`u64`] as a bit vector to store the presence of states, where each bit represents a state.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 pub struct StateSet<T> {
@@ -53,9 +54,18 @@ impl<T> StateSet<T> {
     pub fn clear(&mut self) {
         self.data = 0;
     }
+
+    /// Returns an iterator over the states in the set.
+    #[inline]
+    pub fn iter(&self) -> Iter<T> {
+        Iter {
+            set: self,
+            index: 0,
+        }
+    }
 }
 
-impl<T: States> StateSet<T> {
+impl<T: State> StateSet<T> {
     /// Insert a state into the set.
     #[inline]
     pub fn insert(&mut self, state: T) {
@@ -92,7 +102,7 @@ impl<T> From<StateSet<T>> for u64 {
     }
 }
 
-impl<T: States> TryFrom<u64> for StateSet<T> {
+impl<T: State> TryFrom<u64> for StateSet<T> {
     type Error = ();
 
     /// Tries to convert a [`u64`] into a [`StateSet`].
@@ -131,7 +141,7 @@ impl<T: States> TryFrom<u64> for StateSet<T> {
     }
 }
 
-impl<T: States> Not for StateSet<T> {
+impl<T: State> Not for StateSet<T> {
     type Output = Self;
 
     /// Returns the complement of `self`.
@@ -198,7 +208,7 @@ impl<T> BitXorAssign for StateSet<T> {
     }
 }
 
-impl<T: States> Sub for StateSet<T> {
+impl<T: State> Sub for StateSet<T> {
     type Output = Self;
 
     /// Returns the set difference of `self` and `rhs`.
@@ -211,7 +221,7 @@ impl<T: States> Sub for StateSet<T> {
     }
 }
 
-impl<T: States> SubAssign for StateSet<T> {
+impl<T: State> SubAssign for StateSet<T> {
     /// Replaces `self` with the set difference of `self` and `rhs`.
     #[inline]
     fn sub_assign(&mut self, rhs: Self) {
@@ -219,6 +229,47 @@ impl<T: States> SubAssign for StateSet<T> {
         let _ = T::CHECK_NUM_STATES_AT_MOST_64;
 
         *self &= !rhs;
+    }
+}
+
+impl<T: State> FromIterator<T> for StateSet<T> {
+    /// Creates a [`StateSet`] from an iterator.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use state_set::*;
+    ///
+    /// let set = (0..4).map(|i| i % 2 == 0).collect::<StateSet<_>>();
+    /// assert_eq!(set, state_set![false, true]);
+    /// ```
+    #[inline]
+    fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
+        let mut set = Self::new();
+        for state in iter {
+            set.insert(state);
+        }
+        set
+    }
+}
+
+impl<T: State> Extend<T> for StateSet<T> {
+    /// Extends the set with the states yielded by an iterator.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use state_set::*;
+    ///
+    /// let mut set = state_set![false];
+    /// set.extend([true, false].iter().copied());
+    /// assert_eq!(set, state_set![false, true]);
+    /// ```
+    #[inline]
+    fn extend<I: IntoIterator<Item = T>>(&mut self, iter: I) {
+        for state in iter {
+            self.insert(state);
+        }
     }
 }
 
@@ -242,6 +293,117 @@ macro_rules! state_set {
         set
     }};
 }
+
+impl<T: State> IntoIterator for StateSet<T> {
+    type Item = T;
+    type IntoIter = IntoIter<T>;
+
+    /// Returns an iterator over the states.
+    #[inline]
+    fn into_iter(self) -> Self::IntoIter {
+        IntoIter {
+            set: self,
+            index: 0,
+        }
+    }
+}
+
+/// An iterator over the states in a [`StateSet`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct Iter<'a, T> {
+    set: &'a StateSet<T>,
+    index: u32,
+}
+
+impl<'a, T: State> Iterator for Iter<'a, T> {
+    type Item = T;
+
+    #[inline]
+    fn next(&mut self) -> Option<Self::Item> {
+        while self.index < T::NUM_STATES {
+            let index = self.index;
+            self.index += 1;
+
+            if self.set.data & (1 << index) != 0 {
+                return Some(unsafe { T::from_index_unchecked(index) });
+            }
+        }
+
+        None
+    }
+}
+
+impl<'a, T: State> DoubleEndedIterator for Iter<'a, T> {
+    #[inline]
+    fn next_back(&mut self) -> Option<Self::Item> {
+        while self.index > 0 {
+            self.index -= 1;
+
+            if self.set.data & (1 << self.index) != 0 {
+                return Some(unsafe { T::from_index_unchecked(self.index) });
+            }
+        }
+
+        None
+    }
+}
+
+impl<'a, T: State> ExactSizeIterator for Iter<'a, T> {
+    #[inline]
+    fn len(&self) -> usize {
+        (self.set.len() - self.index) as usize
+    }
+}
+
+impl<'a, T: State> FusedIterator for Iter<'a, T> {}
+
+/// An iterator over the states in a [`StateSet`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct IntoIter<T> {
+    set: StateSet<T>,
+    index: u32,
+}
+
+impl<T: State> Iterator for IntoIter<T> {
+    type Item = T;
+
+    #[inline]
+    fn next(&mut self) -> Option<Self::Item> {
+        while self.index < T::NUM_STATES {
+            let index = self.index;
+            self.index += 1;
+
+            if self.set.data & (1 << index) != 0 {
+                return Some(unsafe { T::from_index_unchecked(index) });
+            }
+        }
+
+        None
+    }
+}
+
+impl<T: State> DoubleEndedIterator for IntoIter<T> {
+    #[inline]
+    fn next_back(&mut self) -> Option<Self::Item> {
+        while self.index > 0 {
+            self.index -= 1;
+            if self.set.data & (1 << self.index) != 0 {
+                return Some(unsafe { T::from_index_unchecked(self.index) });
+            }
+        }
+
+        None
+    }
+}
+
+impl<T: State> ExactSizeIterator for IntoIter<T> {
+    #[inline]
+    fn len(&self) -> usize {
+        (self.set.len() - self.index) as usize
+    }
+}
+
+impl<T: State> FusedIterator for IntoIter<T> {}
 
 #[cfg(test)]
 mod test {
@@ -327,5 +489,23 @@ mod test {
         let rhs = state_set![(false, false), (true, false)];
         set -= rhs;
         assert_eq!(set, state_set![(false, true)]);
+    }
+
+    #[test]
+    fn iter() {
+        let set = state_set![(false, false), (false, true)];
+        let mut iter = set.iter();
+        assert_eq!(iter.next(), Some((false, false)));
+        assert_eq!(iter.next(), Some((false, true)));
+        assert_eq!(iter.next(), None);
+    }
+
+    #[test]
+    fn into_intr() {
+        let set = state_set![(false, false), (false, true)];
+        let mut iter = set.into_iter();
+        assert_eq!(iter.next(), Some((false, false)));
+        assert_eq!(iter.next(), Some((false, true)));
+        assert_eq!(iter.next(), None);
     }
 }

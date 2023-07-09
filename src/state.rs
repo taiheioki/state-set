@@ -4,7 +4,7 @@ use std::mem::MaybeUninit;
 ///
 /// Each state of a type implementing this trait is indexed by an integer from `0` to `Self::NUM_STATES`.
 /// This traits provides methods for converting between values of the type and their indices.
-pub trait States: Sized {
+pub trait State: Sized {
     /// The number of possible states that this type can be in.
     ///
     /// # Example
@@ -84,7 +84,7 @@ pub trait States: Sized {
     unsafe fn from_index_unchecked(index: u32) -> Self;
 }
 
-impl States for bool {
+impl State for bool {
     const NUM_STATES: u32 = 2;
 
     #[inline]
@@ -98,7 +98,7 @@ impl States for bool {
     }
 }
 
-impl<T: States, const N: usize> States for [T; N] {
+impl<T: State, const N: usize> State for [T; N] {
     const NUM_STATES: u32 = T::NUM_STATES.pow(N as u32);
 
     #[inline]
@@ -126,7 +126,7 @@ impl<T: States, const N: usize> States for [T; N] {
 
 macro_rules! tuple_impl {
     ($($T:ident)*) => {
-        impl<$($T: States),*> States for ($($T,)*) {
+        impl<$($T: State),*> State for ($($T,)*) {
             const NUM_STATES: u32 = 1 $(* $T::NUM_STATES)*;
 
             #[allow(non_snake_case, unconditional_recursion, unused_mut, unused_parens)]
@@ -177,7 +177,7 @@ tuple_impl!(A B C D E F G H I J K L M N O P);
 
 macro_rules! singleton_impl {
     ($ty:ty) => {
-        impl States for $ty {
+        impl State for $ty {
             const NUM_STATES: u32 = 1;
 
             #[inline]
@@ -195,7 +195,7 @@ macro_rules! singleton_impl {
 
 macro_rules! enum_impl {
     ($ty:ty, $states:expr $(, $variant:ident = $index:expr)*) => {
-        impl States for $ty {
+        impl State for $ty {
             const NUM_STATES: u32 = $states;
 
             #[inline]
@@ -216,7 +216,7 @@ macro_rules! enum_impl {
     };
 }
 
-impl<T: States> States for Option<T> {
+impl<T: State> State for Option<T> {
     const NUM_STATES: u32 = 1 + T::NUM_STATES;
 
     #[inline]
@@ -230,7 +230,7 @@ impl<T: States> States for Option<T> {
     }
 }
 
-impl<T: States, E: States> States for Result<T, E> {
+impl<T: State, E: State> State for Result<T, E> {
     const NUM_STATES: u32 = T::NUM_STATES + E::NUM_STATES;
 
     #[inline]
@@ -252,7 +252,7 @@ impl<T: States, E: States> States for Result<T, E> {
 singleton_impl!(std::alloc::System);
 
 // std::cmp
-impl<T: States> States for std::cmp::Reverse<T> {
+impl<T: State> State for std::cmp::Reverse<T> {
     const NUM_STATES: u32 = T::NUM_STATES;
 
     #[inline]
@@ -276,7 +276,7 @@ singleton_impl!(std::fmt::Error);
 enum_impl!(std::fmt::Alignment, 3, Left = 0, Right = 1, Center = 2);
 
 // std::marker
-impl<T> States for std::marker::PhantomData<T>
+impl<T> State for std::marker::PhantomData<T>
 where
     T: ?Sized,
 {
@@ -310,7 +310,7 @@ enum_impl!(
 );
 
 // std::ops
-impl<B: States, C: States> States for std::ops::ControlFlow<B, C> {
+impl<B: State, C: State> State for std::ops::ControlFlow<B, C> {
     const NUM_STATES: u32 = B::NUM_STATES + C::NUM_STATES;
 
     #[inline]
@@ -337,7 +337,7 @@ mod test {
 
     use super::*;
 
-    fn check<T: Clone + Debug + PartialEq + States>(states: &[T]) {
+    fn check<T: Clone + Debug + PartialEq + State>(states: &[T]) {
         assert_eq!(T::NUM_STATES, states.len() as u32);
         for (i, state) in states.iter().enumerate() {
             assert_eq!(state.clone().into_index(), i as u32);

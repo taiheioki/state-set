@@ -1,4 +1,4 @@
-use state_set::States;
+use state_set::State;
 
 #[derive(Debug, PartialEq, Eq, States)]
 struct EmptyNamedStruct {}
