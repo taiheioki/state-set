@@ -1,4 +1,5 @@
 use std::{
+    hash::{Hash, Hasher},
     iter::FusedIterator,
     marker::PhantomData,
     ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Not, Sub, SubAssign},
@@ -18,7 +19,7 @@ use crate::State;
 ///
 /// This struct manages a set of states for a type `T` that implements [`State`].
 /// It uses a [`u64`] as a bit vector to store the presence of states, where each bit represents a state.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug)]
 pub struct StateSet<T> {
     bits: u64,
     phantom: PhantomData<T>,
@@ -101,6 +102,20 @@ impl<T> StateSet<T> {
 }
 
 impl<T: State> StateSet<T> {
+    /// Returns `true` if the set contains all the states.
+    ///
+    /// # Examples
+    /// ```
+    /// # use state_set::*;
+    /// #
+    /// let set = state_set![false, true];
+    /// assert!(set.is_all());
+    /// ```
+    #[inline]
+    pub const fn is_all(&self) -> bool {
+        self.bits == u64::MAX >> (64 - T::NUM_STATES)
+    }
+
     /// Insert a state into the set.
     ///
     /// # Examples
@@ -156,6 +171,40 @@ impl<T: State> StateSet<T> {
     }
 }
 
+impl<T> Default for StateSet<T> {
+    /// Creates a new, empty [`StateSet`].
+    #[inline]
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<T> Hash for StateSet<T> {
+    #[inline]
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.bits.hash(state);
+    }
+}
+
+impl<T> PartialEq for StateSet<T> {
+    /// Returns `true` if the two sets have the same states.
+    ///
+    /// # Examples
+    /// ```
+    /// # use state_set::*;
+    /// #
+    /// let set1 = state_set![false, true];
+    /// let set2 = state_set![true, false];
+    /// assert_eq!(set1, set2);
+    /// ```
+    #[inline]
+    fn eq(&self, other: &Self) -> bool {
+        self.bits == other.bits
+    }
+}
+
+impl<T> Eq for StateSet<T> {}
+
 impl<T> From<StateSet<T>> for u64 {
     /// Converts a [`StateSet`] into a [`u64`].
     ///
@@ -208,7 +257,7 @@ impl<T: State> TryFrom<u64> for StateSet<T> {
         #[allow(clippy::let_unit_value)]
         let _ = T::CHECK_NUM_STATES_AT_MOST_64;
 
-        if value & !((1 << T::NUM_STATES) - 1) == 0 {
+        if value & !(u64::MAX >> (64 - T::NUM_STATES)) == 0 {
             Ok(unsafe { Self::from_u64_unchecked(value) })
         } else {
             Err(InvalidBitVectorError)
@@ -233,7 +282,7 @@ impl<T: State> Not for StateSet<T> {
         #[allow(clippy::let_unit_value)]
         let _ = T::CHECK_NUM_STATES_AT_MOST_64;
 
-        unsafe { Self::from_u64_unchecked(!self.bits & ((1 << T::NUM_STATES) - 1)) }
+        unsafe { Self::from_u64_unchecked(!self.bits & (u64::MAX >> (64 - T::NUM_STATES))) }
     }
 }
 
@@ -630,6 +679,13 @@ mod test {
     use crate::state_set;
 
     use super::*;
+
+    #[test]
+    fn test_overflow() {
+        let set = !StateSet::<[bool; 6]>::new();
+        assert!(set.is_all());
+        assert_eq!(StateSet::<[bool; 6]>::try_from(u64::MAX), Ok(set));
+    }
 
     #[test]
     fn try_from_u64() {

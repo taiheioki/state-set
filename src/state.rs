@@ -78,7 +78,7 @@ pub trait State: Sized {
     /// ```
     /// # use state_set::*;
     /// #
-    /// let set = StateSet::<bool>::all();
+    /// let set = bool::all();
     /// assert_eq!(set, state_set![false, true]);
     /// ```
     #[inline]
