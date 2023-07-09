@@ -1,5 +1,5 @@
 [package]
-name = "states-derive"
+name = "state-derive"
 version = "0.1.0"
 authors = ["Taihei OKI <t.oki.natrium@gmail.com"]
 edition = "2021"

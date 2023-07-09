@@ -1,5 +1,5 @@
 [workspace]
-members = ["states-derive"]
+members = ["state-derive"]
 
 [package]
 name = "state-set"
@@ -8,12 +8,12 @@ authors = ["Taihei OKI <t.oki.natrium@gmail.com"]
 edition = "2021"
 
 [dependencies]
-states-derive = { path = "./states-derive", optional = true }
+state-derive = { path = "./state-derive", optional = true }
 
 [features]
-derive = ["states-derive"]
+derive = ["state-derive"]
 
 [[test]]
-name = "derive_states"
-path = "tests/derive_states.rs"
+name = "derive_state"
+path = "tests/derive_state.rs"
 required-features = ["derive"]

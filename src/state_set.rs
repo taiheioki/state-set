@@ -8,7 +8,7 @@ use crate::State;
 
 /// A set of states represented by a bit vector.
 ///
-/// This struct manages a set of states for a type `T` that implements [`States`].
+/// This struct manages a set of states for a type `T` that implements [`State`].
 /// It uses a [`u64`] as a bit vector to store the presence of states, where each bit represents a state.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 pub struct StateSet<T> {

@@ -8,7 +8,7 @@ struct Context<'a> {
     state_set: &'a Path,
 }
 
-pub(crate) fn derive_states_impl(input: &DeriveInput) -> TokenStream {
+pub(crate) fn derive_state_impl(input: &DeriveInput) -> TokenStream {
     let state_set = find_crate("state-set");
     let ctx = Context {
         input,
@@ -25,7 +25,7 @@ pub(crate) fn derive_states_impl(input: &DeriveInput) -> TokenStream {
 
     quote! {
         #[automatically_derived]
-        impl #impl_generics #state_set::States for #ident #ty_generics #where_clause {
+        impl #impl_generics #state_set::State for #ident #ty_generics #where_clause {
             const NUM_STATES: u32 = #num_states;
 
             #[inline]
@@ -34,6 +34,7 @@ pub(crate) fn derive_states_impl(input: &DeriveInput) -> TokenStream {
             }
 
             #[inline]
+            #[allow(clippy::modulo_one)]
             unsafe fn from_index_unchecked(index: u32) -> Self {
                 #from_index_unchecked_body
             }
@@ -92,7 +93,7 @@ fn num_states_from_fields(ctx: &Context, fields: &Fields) -> TokenStream {
         .iter()
         .map(|field| {
             let field_type = &field.ty;
-            quote! { <#field_type as #state_set::States>::NUM_STATES }
+            quote! { <#field_type as #state_set::State>::NUM_STATES }
         })
         .collect();
 
@@ -202,8 +203,8 @@ fn into_index_body_from_fields(
         .rev()
         .map(|(field, ident)| {
             let field_type = &field.ty;
-            let term = quote! { <#field_type as #state_set::States>::into_index(#ident) * #base };
-            base = quote! { #base * <#field_type as #state_set::States>::NUM_STATES };
+            let term = quote! { <#field_type as #state_set::State>::into_index(#ident) * #base };
+            base = quote! { #base * <#field_type as #state_set::State>::NUM_STATES };
             term
         })
         .collect();
@@ -255,8 +256,8 @@ fn fields_init_list(ctx: &Context, fields: &Fields) -> TokenStream {
             let mut fields: Vec<_> = fields.named.iter().rev().map(|field| {
                 let field_ident = field.ident.as_ref().unwrap();
                 let field_type = &field.ty;
-                let num_states = quote! { <#field_type as #state_set::States>::NUM_STATES };
-                let result = quote! { #field_ident: <#field_type as #state_set::States>::from_index_unchecked((index / (#base)) % #num_states) };
+                let num_states = quote! { <#field_type as #state_set::State>::NUM_STATES };
+                let result = quote! { #field_ident: <#field_type as #state_set::State>::from_index_unchecked((index / (#base)) % #num_states) };
                 base = quote! { #base * #num_states };
                 result
             }).collect();
@@ -266,8 +267,8 @@ fn fields_init_list(ctx: &Context, fields: &Fields) -> TokenStream {
         Fields::Unnamed(fields) => {
             let mut fields: Vec<_> = fields.unnamed.iter().rev().map(|field| {
                 let field_type = &field.ty;
-                let num_states = quote! { <#field_type as #state_set::States>::NUM_STATES };
-                let result = quote! { <#field_type as #state_set::States>::from_index_unchecked((index / (#base)) % #num_states) };
+                let num_states = quote! { <#field_type as #state_set::State>::NUM_STATES };
+                let result = quote! { <#field_type as #state_set::State>::from_index_unchecked((index / (#base)) % #num_states) };
                 base = quote! { #base * #num_states };
                 result
             }).collect();

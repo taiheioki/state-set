@@ -1,6 +1,6 @@
 use state_set::State;
 
-#[derive(Debug, PartialEq, Eq, States)]
+#[derive(Debug, PartialEq, Eq, State)]
 struct EmptyNamedStruct {}
 
 #[test]
@@ -10,7 +10,7 @@ fn empty_named_struct() {
     assert_eq!(EmptyNamedStruct::from_index(0), Some(EmptyNamedStruct {}));
 }
 
-#[derive(Debug, PartialEq, Eq, States)]
+#[derive(Debug, PartialEq, Eq, State)]
 struct NamedStruct {
     a: bool,
     b: (),
@@ -60,7 +60,7 @@ fn named_struct() {
     );
 }
 
-#[derive(Debug, PartialEq, Eq, States)]
+#[derive(Debug, PartialEq, Eq, State)]
 struct EmptyUnnamedStruct();
 
 #[test]
@@ -73,7 +73,7 @@ fn empty_unnamed_struct() {
     );
 }
 
-#[derive(Debug, PartialEq, Eq, States)]
+#[derive(Debug, PartialEq, Eq, State)]
 struct UnnamedStruct(bool, (), Option<bool>);
 
 #[test]
@@ -113,7 +113,7 @@ fn unnamed_struct() {
     );
 }
 
-#[derive(Debug, PartialEq, Eq, States)]
+#[derive(Debug, PartialEq, Eq, State)]
 enum EmptyEnum {}
 
 #[test]
@@ -121,7 +121,7 @@ fn empty_enum() {
     assert_eq!(EmptyEnum::NUM_STATES, 0);
 }
 
-#[derive(Debug, PartialEq, Eq, States)]
+#[derive(Debug, PartialEq, Eq, State)]
 enum Enum {
     A,
     B,
@@ -141,7 +141,7 @@ fn normal_enum() {
     assert_eq!(Enum::from_index(2), Some(Enum::C));
 }
 
-#[derive(Debug, PartialEq, Eq, States)]
+#[derive(Debug, PartialEq, Eq, State)]
 enum EnumWithData {
     A,
     B(),
