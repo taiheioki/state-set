@@ -2,10 +2,13 @@ use std::mem::MaybeUninit;
 
 /// A trait for types having a finite number of possible states.
 ///
-/// Each state of a type implementing this trait is indexed by an integer from `0` to `Self::NUM_STATES`.
+/// Each state of a type implementing this trait is indexed by an integer from `0` to [`Self::NUM_STATES`].
 /// This traits provides methods for converting between values of the type and their indices.
 pub trait State: Sized {
-    /// The number of possible states that this type can be in.
+    /// The total number of distinct states that values of this type can represent.
+    ///
+    /// The states of the type are associated with unique indices from `0` up to but not including [`Self::NUM_STATES`].
+    /// This means [`Self::NUM_STATES`] gives the count of the distinct states of the type.
     ///
     /// # Example
     /// ```
@@ -21,7 +24,7 @@ pub trait State: Sized {
 
     /// A compile-time check to ensure that the number of states does not exceed 64.
     ///
-    /// If `Self::NUM_STATES` is greater than 64, using this will fail to compile.
+    /// If [`Self::NUM_STATES`] is greater than 64, using this will fail to compile.
     ///
     /// # Example
     /// ```
