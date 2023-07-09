@@ -7,6 +7,7 @@ licence = "MIT/Apache-2.0"
 version = "0.1.0"
 authors = ["Taihei OKI <t.oki.natrium@gmail.com"]
 repository = "https://github.com/taiheioki/state-set"
+readme = "README.md"
 edition = "2021"
 
 [dependencies]

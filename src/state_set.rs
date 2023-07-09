@@ -192,25 +192,12 @@ impl<T> From<StateSet<T>> for u64 {
 /// Represents an error when trying to convert a `u64` into a [`StateSet`].
 ///
 /// This error is used in the implementation of [`TryFrom<u64>`] for [`StateSet`].
-///
-/// # Example
-///
-/// ```
-/// # use state_set::*;
-/// #
-/// let result = StateSet::<bool>::try_from(0b100);
-/// assert!(result.is_err());
-/// ```
 #[derive(Clone, Copy, Debug, Eq, Error, PartialEq)]
-pub enum InvalidStateSetError {
-    /// The error variant that indicates the `u64` value had bits
-    /// set at positions exceeding the total number of states.
-    #[error("The value has bits set at positions exceeding than the number of states")]
-    ExceedsNumStates,
-}
+#[error("The value has bits set at positions exceeding than the number of states")]
+pub struct InvalidBitVectorError;
 
 impl<T: State> TryFrom<u64> for StateSet<T> {
-    type Error = InvalidStateSetError;
+    type Error = InvalidBitVectorError;
 
     /// Tries to convert a [`u64`] into a [`StateSet`].
     ///
@@ -240,7 +227,7 @@ impl<T: State> TryFrom<u64> for StateSet<T> {
         if value & !((1 << T::NUM_STATES) - 1) == 0 {
             Ok(unsafe { Self::from_u64_unchecked(value) })
         } else {
-            Err(InvalidStateSetError::ExceedsNumStates)
+            Err(InvalidBitVectorError)
         }
     }
 }
@@ -450,7 +437,7 @@ impl<T: State> Extend<T> for StateSet<T> {
     /// assert_eq!(set, state_set![false, true]);
     /// ```
     #[inline]
-    fn extend<I: IntoIterator<Item = T>>(&mut self, iter: I) {
+    fn extend<I: IntoIterator<Item = T>>(&mut self, iter: impl) {
         for state in iter {
             self.insert(state);
         }

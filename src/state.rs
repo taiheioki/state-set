@@ -22,23 +22,7 @@ pub trait State: Sized {
     /// ```
     const NUM_STATES: u32;
 
-    /// A compile-time check to ensure that the number of states does not exceed 64.
-    ///
-    /// If [`Self::NUM_STATES`] is greater than 64, using this will fail to compile.
-    ///
-    /// # Example
-    /// ```
-    /// # use state_set::*;
-    /// #
-    /// <[bool; 5]>::CHECK_NUM_STATES_AT_MOST_64; // 2^5 = 32 <= 64
-    /// <[bool; 6]>::CHECK_NUM_STATES_AT_MOST_64; // 2^6 = 64 <= 64
-    /// ```
-    ///
-    /// ```compile_fail
-    /// # use state_set::*;
-    /// #
-    /// <[bool; 7]>::CHECK_NUM_STATES_AT_MOST_64; // 2^7 = 128 > 64
-    /// ```
+    #[doc(hidden)]
     const CHECK_NUM_STATES_AT_MOST_64: () = {
         let _ = 64 - Self::NUM_STATES;
     };
