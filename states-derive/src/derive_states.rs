@@ -57,6 +57,7 @@ fn gen_where_clause(ctx: &Context) -> Option<WhereClause> {
     ctx.input.generics.where_clause.clone()
 }
 
+/// Generates the value of `NUM_STATES`.
 fn num_states(ctx: &Context) -> TokenStream {
     match &ctx.input.data {
         Data::Enum(data_enum) => {
@@ -98,6 +99,7 @@ fn num_states_from_fields(ctx: &Context, fields: &Fields) -> TokenStream {
     quote! { #( #factors* )* 1 }
 }
 
+/// Generates the body of `into_index`.
 fn into_index_body(ctx: &Context) -> TokenStream {
     match &ctx.input.data {
         Data::Enum(data_enum) => {
@@ -209,35 +211,29 @@ fn into_index_body_from_fields(
     quote! { #( #terms+ )* 0 }
 }
 
+/// Generate the body of `from_index_unchecked`.
 fn from_index_unchecked_body(ctx: &Context) -> TokenStream {
     match &ctx.input.data {
         Data::Enum(data_enum) => {
-            let mut base = quote! { 0 };
-
-            let arms: Vec<_> = data_enum
+            let statements: Vec<_> = data_enum
                 .variants
                 .iter()
                 .map(|variant| {
                     let variant_ident = &variant.ident;
                     let num_states = num_states_from_fields(ctx, &variant.fields);
-                    let next_base = quote! { #base + #num_states };
                     let fields_init = fields_init_list(ctx, &variant.fields);
-                    let arm = quote! {
-                        index if index < #next_base => {
-                            let index = index - (#base);
-                            Self::#variant_ident #fields_init
+                    quote! {
+                        if index < #num_states {
+                            return Self::#variant_ident #fields_init;
                         }
-                    };
-                    base = next_base;
-                    arm
+                        let index = index - #num_states;
+                    }
                 })
                 .collect();
 
             quote! {
-                match index {
-                    #(#arms,)*
-                    _ => unreachable!(),
-                }
+                #(#statements)*
+                unreachable!()
             }
         }
         Data::Struct(data_struct) => {
@@ -276,7 +272,7 @@ fn fields_init_list(ctx: &Context, fields: &Fields) -> TokenStream {
                 result
             }).collect();
             fields.reverse();
-            quote! { ( #(#fields),* ) }
+            quote! { (#(#fields),*) }
         }
         Fields::Unit => quote! {},
     }
