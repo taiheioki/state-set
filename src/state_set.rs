@@ -4,6 +4,9 @@ use std::{
     ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Not, Sub, SubAssign},
 };
 
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
+
 use crate::State;
 
 /// A set of states represented by a bit vector.
@@ -11,6 +14,7 @@ use crate::State;
 /// This struct manages a set of states for a type `T` that implements [`State`].
 /// It uses a [`u64`] as a bit vector to store the presence of states, where each bit represents a state.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct StateSet<T> {
     data: u64,
     phantom: PhantomData<T>,
