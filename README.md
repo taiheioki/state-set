@@ -1,6 +1,6 @@
 # state-set
 
-[![CI](https://github.com/taiheioki/state-set/actions/workflows/ci.yml/badge.svg)](https://github.com/taiheioki/state-set/actions/workflows/ci.yml) [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![CI](https://github.com/taiheioki/state-set/actions/workflows/ci.yml/badge.svg)](https://github.com/taiheioki/state-set/actions/workflows/ci.yml) ![GitHub](https://img.shields.io/github/license/taiheioki/state-set)
 
 ## License
 
