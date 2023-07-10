@@ -5,12 +5,13 @@ members = ["state-derive"]
 name = "state-set"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.64.0"
 authors = ["Taihei OKI <t.oki.natrium@gmail.com"]
-licence = "MIT/Apache-2.0"
+license = "MIT/Apache-2.0"
 readme = "README.md"
 repository = "https://github.com/taiheioki/state-set"
 homepage = ""
-description = ""
+description = "Memory-efficient representation of sets for types with finite states using bit vectors"
 categories = ["data-structures"]
 keywords = ["data-structures", "bitflags"]
 
