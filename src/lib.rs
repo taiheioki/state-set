@@ -18,11 +18,15 @@
 //! Additionally, `state-set` provides a derive macro for the [`State`] trait if the library is built with the `derive` feature.
 //! This makes it effortless to leverage the functionality of `state-set` for your own types.
 //! Just derive [`State`] for your type, and you're ready to use it in a [`StateSet`].
+
 mod state;
 pub use crate::state::State;
 
 mod state_set;
-pub use crate::state_set::{InvalidBitVectorError, Iter, StateSet};
+pub use crate::state_set::{InvalidBitVectorError, StateSet};
+
+mod iter;
+pub use crate::iter::Iter;
 
 #[cfg(feature = "derive")]
 #[doc(inline)]

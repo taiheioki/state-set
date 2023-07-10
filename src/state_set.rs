@@ -1,6 +1,7 @@
 use std::{
+    fmt,
+    fmt::{Debug, Formatter},
     hash::{Hash, Hasher},
-    iter::FusedIterator,
     marker::PhantomData,
     ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Not, Sub, SubAssign},
 };
@@ -14,15 +15,14 @@ use serde::{
     Deserialize, Deserializer, Serialize, Serializer,
 };
 
-use crate::State;
+use crate::{Iter, State};
 
 /// A set of states represented by a bit vector.
 ///
 /// This struct manages a set of states for a type `T` that implements [`State`].
 /// It uses a [`u64`] as a bit vector to store the presence of states, where each bit represents a state.
-#[derive(Debug)]
 pub struct StateSet<T> {
-    bits: u64,
+    pub(crate) bits: u64,
     phantom: PhantomData<T>,
 }
 
@@ -244,6 +244,13 @@ impl<T> Clone for StateSet<T> {
     #[inline]
     fn clone(&self) -> Self {
         unsafe { Self::from_bits_unchecked(self.bits) }
+    }
+}
+
+impl<T: State + Debug> Debug for StateSet<T> {
+    #[inline]
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_set().entries(self.iter()).finish()
     }
 }
 
@@ -733,86 +740,19 @@ impl<'de, T: State + Deserialize<'de>> Deserialize<'de> for StateSet<T> {
     }
 }
 
-/// An iterator that yields the states in a [`StateSet`].
-///
-/// This struct is created by the [`iter`](StateSet::iter) method on [`StateSet`].
-/// Iteration will be in ascending order according to the state's index.
-///
-/// # Example
-///
-/// ```
-/// # use state_set::*;
-/// let s = state_set![true, false];
-/// let mut iter = s.iter();
-///
-/// assert_eq!(iter.next(), Some(false));
-/// assert_eq!(iter.next(), Some(true));
-/// assert_eq!(iter.next(), None);
-/// ```
-#[derive(Debug)]
-pub struct Iter<T>(StateSet<T>);
-
-impl<T> Clone for Iter<T> {
-    #[inline]
-    fn clone(&self) -> Self {
-        Self(self.0.clone())
-    }
-}
-
-impl<T> PartialEq for Iter<T> {
-    #[inline]
-    fn eq(&self, other: &Self) -> bool {
-        self.0 == other.0
-    }
-}
-
-impl<T> Eq for Iter<T> {}
-
-impl<T> Hash for Iter<T> {
-    #[inline]
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.0.hash(state)
-    }
-}
-
-impl<T: State> Iterator for Iter<T> {
-    type Item = T;
-
-    #[inline]
-    fn next(&mut self) -> Option<Self::Item> {
-        (!self.0.is_empty()).then(|| {
-            let index = self.0.bits.trailing_zeros();
-            self.0.bits ^= 1 << index;
-            unsafe { T::from_index_unchecked(index) }
-        })
-    }
-}
-
-impl<T: State> DoubleEndedIterator for Iter<T> {
-    #[inline]
-    fn next_back(&mut self) -> Option<Self::Item> {
-        (!self.0.is_empty()).then(|| {
-            let index = 63 - self.0.bits.leading_zeros();
-            self.0.bits ^= 1 << index;
-            unsafe { T::from_index_unchecked(index) }
-        })
-    }
-}
-
-impl<T: State> ExactSizeIterator for Iter<T> {
-    #[inline]
-    fn len(&self) -> usize {
-        self.0.len() as usize
-    }
-}
-
-impl<T: State> FusedIterator for Iter<T> {}
-
 #[cfg(test)]
 mod test {
     use crate::state_set;
 
     use super::*;
+
+    #[test]
+    fn debug() {
+        assert_eq!(format!("{:?}", StateSet::<bool>::new()), "{false}");
+        assert_eq!(format!("{:?}", state_set![false]), "{false}");
+        assert_eq!(format!("{:?}", state_set![true]), "{true}");
+        assert_eq!(format!("{:?}", bool::all()), "{false, true}");
+    }
 
     #[test]
     fn is_all_overflow() {
@@ -869,14 +809,5 @@ mod test {
 
         let set_deserialized: StateSet<(bool, bool)> = serde_json::from_value(j).unwrap();
         assert_eq!(set, set_deserialized);
-    }
-
-    #[test]
-    fn iter() {
-        let set = state_set![(false, false), (false, true)];
-        let mut iter = set.iter();
-        assert_eq!(iter.next(), Some((false, false)));
-        assert_eq!(iter.next(), Some((false, true)));
-        assert_eq!(iter.next(), None);
     }
 }
