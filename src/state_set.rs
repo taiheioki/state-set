@@ -715,7 +715,7 @@ impl<'de, T: State + Deserialize<'de>> Visitor<'de> for DeserializeVisitor<T> {
     type Value = StateSet<T>;
 
     #[inline]
-    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+    fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         formatter.write_str("a sequence of states")
     }
 

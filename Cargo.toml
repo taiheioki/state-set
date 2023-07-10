@@ -31,3 +31,6 @@ serde_json = "1.0.100"
 name = "derive_state"
 path = "tests/derive_state.rs"
 required-features = ["derive"]
+
+[package.metadata.docs.rs]
+all-features = true
