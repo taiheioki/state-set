@@ -3,12 +3,20 @@ members = ["state-derive"]
 
 [package]
 name = "state-set"
-licence = "MIT/Apache-2.0"
 version = "0.1.0"
-authors = ["Taihei OKI <t.oki.natrium@gmail.com"]
-repository = "https://github.com/taiheioki/state-set"
-readme = "README.md"
 edition = "2021"
+authors = ["Taihei OKI <t.oki.natrium@gmail.com"]
+licence = "MIT/Apache-2.0"
+readme = "README.md"
+repository = "https://github.com/taiheioki/state-set"
+homepage = ""
+description = ""
+categories = ["data-structures"]
+keywords = ["data-structures", "bitflags"]
+
+[features]
+derive = ["state-derive"]
+serde = ["dep:serde"]
 
 [dependencies]
 state-derive = { path = "./state-derive", optional = true }
@@ -17,10 +25,6 @@ thiserror = "1.0"
 
 [dev-dependencies]
 serde_json = "1.0.100"
-
-[features]
-derive = ["state-derive"]
-serde = ["dep:serde"]
 
 [[test]]
 name = "derive_state"
