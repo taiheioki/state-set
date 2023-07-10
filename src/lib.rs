@@ -3,7 +3,8 @@
     missing_docs,
     rust_2018_idioms,
     unused,
-    unreachable_pub
+    unreachable_pub,
+    clippy::pedantic
 )]
 
 //! `state-set` is a Rust library for managing sets of states for types that implement the [`State`] trait.
@@ -29,7 +30,6 @@ pub mod error;
 pub mod iter;
 
 #[cfg(feature = "derive")]
-#[doc(inline)]
 pub use state_derive::State;
 
 /// A declarative macro for creating a [`StateSet`] from a list of states.

@@ -55,7 +55,7 @@ impl<T> Eq for Iter<T> {}
 impl<T> Hash for Iter<T> {
     #[inline]
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.0.hash(state)
+        self.0.hash(state);
     }
 }
 

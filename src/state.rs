@@ -23,6 +23,7 @@ pub trait State: Sized {
     /// ```
     const NUM_STATES: u32;
 
+    // A compile-time check that `Self::NUM_STATES` is at most 64.
     #[doc(hidden)]
     const CHECK_NUM_STATES_AT_MOST_64: () = {
         let _ = 64 - Self::NUM_STATES;
@@ -37,6 +38,7 @@ pub trait State: Sized {
     /// assert_eq!(false.into_index(), 0);
     /// assert_eq!(true.into_index(), 1);
     /// ```
+    #[must_use]
     fn into_index(self) -> u32;
 
     /// Converts `index` into a value of this type. Returns `None` if `index >= Self::STATUS`.
@@ -50,6 +52,7 @@ pub trait State: Sized {
     /// assert_eq!(bool::from_index(2), None);
     /// ```
     #[inline]
+    #[must_use]
     fn from_index(index: u32) -> Option<Self> {
         // SAFETY: `index` is less than `Self::NUM_STATES`.
         (index < Self::NUM_STATES).then(|| unsafe { Self::from_index_unchecked(index) })
@@ -66,6 +69,7 @@ pub trait State: Sized {
     /// # use state_set::*;
     /// assert_eq!(unsafe { bool::from_index(0) }, Some(false));
     /// assert_eq!(unsafe { bool::from_index(1) }, Some(true));
+    #[must_use]
     unsafe fn from_index_unchecked(index: u32) -> Self;
 
     /// Creates a new [`StateSet<Self>`] consisting of all the states.
@@ -78,6 +82,7 @@ pub trait State: Sized {
     /// assert_eq!(set, state_set![false, true]);
     /// ```
     #[inline]
+    #[must_use]
     fn all() -> StateSet<Self> {
         !StateSet::new()
     }
@@ -88,7 +93,7 @@ impl State for bool {
 
     #[inline]
     fn into_index(self) -> u32 {
-        self as u32
+        self.into()
     }
 
     #[inline]
@@ -98,6 +103,7 @@ impl State for bool {
 }
 
 impl<T: State, const N: usize> State for [T; N] {
+    #[allow(clippy::cast_possible_truncation)]
     const NUM_STATES: u32 = T::NUM_STATES.pow(N as u32);
 
     #[inline]
@@ -117,6 +123,7 @@ impl<T: State, const N: usize> State for [T; N] {
         // The following is equivalent to `std::mem::transmute::<_, [T; N]>(states)`,
         // which doesn't compile on Rust 1.69.0.
         // Reference: https://github.com/rust-lang/rust/issues/61956
+        #[allow(clippy::borrow_as_ptr, clippy::ptr_as_ptr)]
         let res = (&mut array as *mut _ as *mut [T; N]).read();
         core::mem::forget(array);
         res
@@ -234,7 +241,7 @@ impl<T: State, E: State> State for Result<T, E> {
 
     #[inline]
     fn into_index(self) -> u32 {
-        self.map_or_else(|e| T::NUM_STATES + e.into_index(), |v| v.into_index())
+        self.map_or_else(|e| T::NUM_STATES + e.into_index(), State::into_index)
     }
 
     #[inline]

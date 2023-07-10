@@ -27,6 +27,7 @@ pub struct StateSet<T> {
 impl<T> StateSet<T> {
     /// Creates a new, empty [`StateSet`].
     #[inline]
+    #[must_use]
     pub const fn new() -> Self {
         unsafe { Self::from_bits_unchecked(0) }
     }
@@ -37,6 +38,7 @@ impl<T> StateSet<T> {
     /// The caller must ensure that `bits` represent a valid state (that is, the bits in positions greater than
     /// [`T::NUM_STATES`](State::NUM_STATES) are not set).
     #[inline]
+    #[must_use]
     pub const unsafe fn from_bits_unchecked(bits: u64) -> Self {
         Self {
             bits,
@@ -55,6 +57,7 @@ impl<T> StateSet<T> {
     /// assert_eq!(set.len(), 2);
     /// ```
     #[inline]
+    #[must_use]
     pub const fn len(&self) -> u32 {
         self.bits.count_ones()
     }
@@ -73,6 +76,7 @@ impl<T> StateSet<T> {
     /// assert!(!set.is_empty());
     /// ```
     #[inline]
+    #[must_use]
     pub const fn is_empty(&self) -> bool {
         self.bits == 0
     }
@@ -92,22 +96,6 @@ impl<T> StateSet<T> {
         self.bits = 0;
     }
 
-    /// Returns an iterator over the states in the set.
-    /// Iteration will be in ascending order according to the state's index.
-    ///
-    /// # Examples
-    /// ```
-    /// # use state_set::*;
-    /// let set = state_set![true, false];
-    /// let vec: Vec<_> = set.iter().collect();
-    ///
-    /// assert_eq!(vec, vec![false, true]);
-    /// ```
-    #[inline]
-    pub const fn iter(&self) -> Iter<T> {
-        Iter(unsafe { Self::from_bits_unchecked(self.bits) })
-    }
-
     /// Returns `true` if the set is disjoint from another set.
     ///
     /// # Examples
@@ -121,6 +109,7 @@ impl<T> StateSet<T> {
     /// assert!(!set.is_disjoint(&state_set![true, false]));
     /// ```
     #[inline]
+    #[must_use]
     pub const fn is_disjoint(&self, other: &Self) -> bool {
         (self.bits & other.bits) == 0
     }
@@ -138,6 +127,7 @@ impl<T> StateSet<T> {
     /// assert!(set.is_subset(&state_set![false, true]));
     /// ```
     #[inline]
+    #[must_use]
     pub const fn is_subset(&self, other: &Self) -> bool {
         (self.bits & other.bits) == self.bits
     }
@@ -155,6 +145,7 @@ impl<T> StateSet<T> {
     /// assert!(!set.is_superset(&state_set![false, true]));
     /// ```
     #[inline]
+    #[must_use]
     pub const fn is_superset(&self, other: &Self) -> bool {
         (self.bits & other.bits) == other.bits
     }
@@ -170,6 +161,7 @@ impl<T: State> StateSet<T> {
     /// assert!(set.is_all());
     /// ```
     #[inline]
+    #[must_use]
     pub const fn is_all(&self) -> bool {
         T::NUM_STATES <= 64 && self.bits == u64::MAX >> (64 - T::NUM_STATES)
     }
@@ -235,6 +227,23 @@ impl<T: State> StateSet<T> {
     pub fn contains(&self, state: T) -> bool {
         let index = state.into_index();
         index <= 64 && self.bits & (1 << index) != 0
+    }
+
+    /// Returns an iterator over the states in the set.
+    /// Iteration will be in ascending order according to the state's index.
+    ///
+    /// # Examples
+    /// ```
+    /// # use state_set::*;
+    /// let set = state_set![true, false];
+    /// let vec: Vec<_> = set.iter().collect();
+    ///
+    /// assert_eq!(vec, vec![false, true]);
+    /// ```
+    #[inline]
+    #[must_use]
+    pub const fn iter(&self) -> Iter<T> {
+        Iter(unsafe { Self::from_bits_unchecked(self.bits) })
     }
 }
 
@@ -632,6 +641,7 @@ impl<T: State> State for StateSet<T> {
     /// assert_eq!(bool::all().into_index(), 0b11);
     /// ```
     #[inline]
+    #[allow(clippy::cast_possible_truncation)]
     fn into_index(self) -> u32 {
         self.bits as u32
     }
@@ -660,7 +670,7 @@ impl<T: State> State for StateSet<T> {
     #[inline]
     unsafe fn from_index_unchecked(index: u32) -> Self {
         Self {
-            bits: index as u64,
+            bits: index.into(),
             phantom: PhantomData,
         }
     }
