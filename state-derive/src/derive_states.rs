@@ -54,12 +54,12 @@ fn find_crate(orig_name: &str) -> Path {
     }
 }
 
-fn gen_where_clause(ctx: &Context) -> Option<WhereClause> {
+fn gen_where_clause(ctx: &Context<'_>) -> Option<WhereClause> {
     ctx.input.generics.where_clause.clone()
 }
 
 /// Generates the value of `NUM_STATES`.
-fn num_states(ctx: &Context) -> TokenStream {
+fn num_states(ctx: &Context<'_>) -> TokenStream {
     match &ctx.input.data {
         Data::Enum(data_enum) => {
             let total_states: Vec<_> = data_enum
@@ -76,7 +76,7 @@ fn num_states(ctx: &Context) -> TokenStream {
     }
 }
 
-fn num_states_from_fields(ctx: &Context, fields: &Fields) -> TokenStream {
+fn num_states_from_fields(ctx: &Context<'_>, fields: &Fields) -> TokenStream {
     let state_set = ctx.state_set;
 
     if matches!(fields, Fields::Unit) {
@@ -101,7 +101,7 @@ fn num_states_from_fields(ctx: &Context, fields: &Fields) -> TokenStream {
 }
 
 /// Generates the body of `into_index`.
-fn into_index_body(ctx: &Context) -> TokenStream {
+fn into_index_body(ctx: &Context<'_>) -> TokenStream {
     match &ctx.input.data {
         Data::Enum(data_enum) => {
             let mut base = quote! { 0 };
@@ -179,7 +179,7 @@ fn gen_idents(fields: &Fields, unnamed_prefix: &str) -> Vec<TokenStream> {
 }
 
 fn into_index_body_from_fields(
-    ctx: &Context,
+    ctx: &Context<'_>,
     fields: &Fields,
     idents: &[TokenStream],
 ) -> TokenStream {
@@ -213,7 +213,7 @@ fn into_index_body_from_fields(
 }
 
 /// Generate the body of `from_index_unchecked`.
-fn from_index_unchecked_body(ctx: &Context) -> TokenStream {
+fn from_index_unchecked_body(ctx: &Context<'_>) -> TokenStream {
     match &ctx.input.data {
         Data::Enum(data_enum) => {
             let statements: Vec<_> = data_enum
@@ -247,7 +247,7 @@ fn from_index_unchecked_body(ctx: &Context) -> TokenStream {
     }
 }
 
-fn fields_init_list(ctx: &Context, fields: &Fields) -> TokenStream {
+fn fields_init_list(ctx: &Context<'_>, fields: &Fields) -> TokenStream {
     let state_set = ctx.state_set;
     let mut base = quote! { 1 };
 

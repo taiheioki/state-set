@@ -1,3 +1,16 @@
+//! A crate for providing a derive macro implementing `#[derive(State)]`.
+//!
+//! This crate is supposed to use with [`state-set`](https://crates.io/crates/state-set) crate.
+
+#![warn(
+    missing_debug_implementations,
+    missing_docs,
+    rust_2018_idioms,
+    unused,
+    unreachable_pub,
+    clippy::pedantic
+)]
+
 use proc_macro::TokenStream;
 use syn::{parse_macro_input, DeriveInput};
 
