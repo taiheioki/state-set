@@ -14,6 +14,7 @@
 //! # Examples
 //! Here is a basic usage example of `state-set`.
 //! ```
+//! # #[cfg(feature = "derive")] {
 //! # use state_set::*;
 //! #
 //! #[derive(State)]
@@ -31,6 +32,7 @@
 //!     assert!(set.contains(Example::A));
 //!     assert!(!set.contains(Example::C));
 //! }
+//! # }
 //! ```
 //! More examples and detailed usage instructions can be found in the documentation of [`State`] and [`StateSet`].
 
@@ -49,6 +51,7 @@ pub use crate::state_set::{InvalidBitVectorError, Iter, StateSet};
 ///
 /// ```
 /// # use state_set::*;
+/// # use state_derive::State;
 /// #
 /// #[derive(State)]
 /// enum MyEnum {
@@ -74,13 +77,12 @@ pub use state_derive::State;
 /// # Examples
 /// ```
 /// # use state_set::*;
-/// #
-/// let set = state_set![(false, false), (true, true)];
+/// let set = state_set![None, Some(false)];
+///
 /// assert_eq!(set.len(), 2);
-/// assert!(set.contains((false, false)));
-/// assert!(!set.contains((false, true)));
-/// assert!(!set.contains((true, false)));
-/// assert!(set.contains((true, true)));
+/// assert!(set.contains(None));
+/// assert!(set.contains(Some(false)));
+/// assert!(!set.contains(Some(true)));
 /// ```
 #[macro_export]
 macro_rules! state_set {
