@@ -6,8 +6,6 @@ use std::{
     ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Not, Sub, SubAssign},
 };
 
-use thiserror::Error;
-
 #[cfg(feature = "serde")]
 use serde::{
     de::{SeqAccess, Visitor},
@@ -15,7 +13,7 @@ use serde::{
     Deserialize, Deserializer, Serialize, Serializer,
 };
 
-use crate::{Iter, State};
+use crate::{error::InvalidBitVectorError, iter::Iter, State};
 
 /// A set of states represented by a bit vector.
 ///
@@ -304,13 +302,6 @@ impl<T> From<StateSet<T>> for u64 {
         value.bits
     }
 }
-
-/// Represents an error when trying to convert a `u64` into a [`StateSet`].
-///
-/// This error is used in the implementation of [`TryFrom<u64>`] for [`StateSet`].
-#[derive(Clone, Copy, Debug, Eq, Error, PartialEq)]
-#[error("The value has bits set at positions exceeding than the number of states")]
-pub struct InvalidBitVectorError;
 
 impl<T: State> TryFrom<u64> for StateSet<T> {
     type Error = InvalidBitVectorError;

@@ -1,3 +1,5 @@
+//! A module for providing iterators.
+
 use std::{
     fmt::{Debug, Formatter, Result},
     hash::{Hash, Hasher},

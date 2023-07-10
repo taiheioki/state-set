@@ -23,10 +23,10 @@ mod state;
 pub use crate::state::State;
 
 mod state_set;
-pub use crate::state_set::{InvalidBitVectorError, StateSet};
+pub use crate::state_set::StateSet;
 
-mod iter;
-pub use crate::iter::Iter;
+pub mod error;
+pub mod iter;
 
 #[cfg(feature = "derive")]
 #[doc(inline)]
