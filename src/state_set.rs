@@ -5,13 +5,14 @@ use std::{
     ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Not, Sub, SubAssign},
 };
 
+use thiserror::Error;
+
 #[cfg(feature = "serde")]
 use serde::{
     de::{SeqAccess, Visitor},
     ser::SerializeSeq,
     Deserialize, Deserializer, Serialize, Serializer,
 };
-use thiserror::Error;
 
 use crate::State;
 
@@ -19,7 +20,7 @@ use crate::State;
 ///
 /// This struct manages a set of states for a type `T` that implements [`State`].
 /// It uses a [`u64`] as a bit vector to store the presence of states, where each bit represents a state.
-#[derive(Copy, Debug)]
+#[derive(Debug)]
 pub struct StateSet<T> {
     bits: u64,
     phantom: PhantomData<T>,
@@ -65,10 +66,11 @@ impl<T> StateSet<T> {
     /// # Examples
     /// ```
     /// # use state_set::*;
-    ///
     /// let set = StateSet::<bool>::new();
     /// assert!(set.is_empty());
-    ///
+    /// ```
+    /// ```
+    /// # use state_set::*;
     /// let set = state_set![(false, false), (true, true)];
     /// assert!(!set.is_empty());
     /// ```
@@ -84,6 +86,7 @@ impl<T> StateSet<T> {
     /// # use state_set::*;
     /// let mut set = state_set![false, true];
     /// set.clear();
+    ///
     /// assert!(set.is_empty());
     /// ```
     #[inline]
@@ -92,36 +95,121 @@ impl<T> StateSet<T> {
     }
 
     /// Returns an iterator over the states in the set.
+    /// Iteration will be in ascending order according to the state's index.
+    ///
+    /// # Examples
+    /// ```
+    /// # use state_set::*;
+    /// let set = state_set![true, false];
+    /// let vec: Vec<_> = set.iter().collect();
+    ///
+    /// assert_eq!(vec, vec![false, true]);
+    /// ```
     #[inline]
     pub const fn iter(&self) -> Iter<T> {
         Iter(unsafe { Self::from_u64_unchecked(self.bits) })
+    }
+
+    /// Returns `true` if the set is disjoint from another set.
+    ///
+    /// # Examples
+    /// ```
+    /// # use state_set::*;
+    /// let set = state_set![false];
+    ///
+    /// assert!(set.is_disjoint(&state_set![]));
+    /// assert!(!set.is_disjoint(&state_set![false]));
+    /// assert!(set.is_disjoint(&state_set![true]));
+    /// assert!(!set.is_disjoint(&state_set![true, false]));
+    /// ```
+    #[inline]
+    pub const fn is_disjoint(&self, other: &Self) -> bool {
+        (self.bits & other.bits) == 0
+    }
+
+    /// Returns `true` if the set is a subset of another set.
+    ///
+    /// # Examples
+    /// ```
+    /// # use state_set::*;
+    /// let set = state_set![false];
+    ///
+    /// assert!(!set.is_subset(&state_set![]));
+    /// assert!(set.is_subset(&state_set![false]));
+    /// assert!(!set.is_subset(&state_set![true]));
+    /// assert!(set.is_subset(&state_set![false, true]));
+    /// ```
+    #[inline]
+    pub const fn is_subset(&self, other: &Self) -> bool {
+        (self.bits & other.bits) == self.bits
+    }
+
+    /// Returns `true` if the set is a superset of another set.
+    ///
+    /// # Examples
+    /// ```
+    /// # use state_set::*;
+    /// let set = state_set![false];
+    ///
+    /// assert!(set.is_superset(&state_set![]));
+    /// assert!(set.is_superset(&state_set![false]));
+    /// assert!(!set.is_superset(&state_set![true]));
+    /// assert!(!set.is_superset(&state_set![false, true]));
+    /// ```
+    #[inline]
+    pub const fn is_superset(&self, other: &Self) -> bool {
+        (self.bits & other.bits) == other.bits
     }
 }
 
 impl<T: State> StateSet<T> {
     /// Returns `true` if the set contains all the states.
     ///
+    /// # Compile Errors
+    /// Fails to compile if `T::NUM_STATES > 64`.
+    ///
     /// # Examples
     /// ```
     /// # use state_set::*;
-    /// #
     /// let set = state_set![false, true];
     /// assert!(set.is_all());
+    ///
+    /// let set = state_set![false];
+    /// assert!(!set.is_all());
+    /// ```
+    ///
+    /// ```compile_fail
+    /// # use state_set::*;
+    /// let set = StateSet::<[bool; 7]>::new(); // <[bool; 7]>::NUM_STATES = 128 > 64
+    /// let is_all = set.is_all();
     /// ```
     #[inline]
     pub const fn is_all(&self) -> bool {
+        #[allow(clippy::let_unit_value)]
+        let _ = T::CHECK_NUM_STATES_AT_MOST_64;
+
         self.bits == u64::MAX >> (64 - T::NUM_STATES)
     }
 
     /// Insert a state into the set.
     ///
+    /// # Compile Errors
+    /// Fails to compile if `T::NUM_STATES > 64`.
+    ///
     /// # Examples
     /// ```
     /// # use state_set::*;
-    /// #
-    /// let mut set = StateSet::new();
-    /// set.insert(false);
-    /// assert!(set.contains(false));
+    /// let mut set = state_set![None];
+    /// set.insert(None);
+    /// set.insert(Some(false));
+    ///
+    /// assert_eq!(set, state_set![None, Some(false)]);
+    /// ```
+    ///
+    /// ```compile_fail
+    /// # use state_set::*;
+    /// let mut set = StateSet::<[bool; 7]>::new(); // <[bool; 7]>::NUM_STATES = 128 > 64
+    /// set.insert([false; 7]);
     /// ```
     #[inline]
     pub fn insert(&mut self, state: T) {
@@ -133,31 +221,50 @@ impl<T: State> StateSet<T> {
 
     /// Remove a state from the set.
     ///
+    /// # Compile Errors
+    /// Fails to compile if `T::NUM_STATES > 64`.
+    ///
     /// # Examples
     /// ```
     /// # use state_set::*;
-    /// #
-    /// let mut set = state_set![false, true];
-    /// set.remove(true);
-    /// assert!(!set.contains(true));
+    /// let mut set = state_set![None, Some(false)];
+    /// set.remove(Some(false));
+    /// set.remove(Some(true));
+    ///
+    /// assert_eq!(set, state_set![None]);
+    /// ```
+    ///
+    /// ```compile_fail
+    /// # use state_set::*;
+    /// let mut set = StateSet::<[bool; 7]>::new(); // <[bool; 7]>::NUM_STATES = 128 > 64
+    /// set.remove([false; 7]);
     /// ```
     #[inline]
     pub fn remove(&mut self, state: T) {
         #[allow(clippy::let_unit_value)]
         let _ = T::CHECK_NUM_STATES_AT_MOST_64;
 
-        self.bits ^= 1 << state.into_index();
+        self.bits &= !(1 << state.into_index());
     }
 
     /// Returns `true` if the set contains the given state.
     ///
+    /// # Compile Errors
+    /// Fails to compile if `T::NUM_STATES > 64`.
+    ///
     /// # Examples
     /// ```
     /// # use state_set::*;
-    /// #
     /// let set = state_set![false];
+    ///
     /// assert!(set.contains(false));
     /// assert!(!set.contains(true));
+    /// ```
+    ///
+    /// ```compile_fail
+    /// # use state_set::*;
+    /// let set = StateSet::<[bool; 7]>::new(); // <[bool; 7]>::NUM_STATES = 128 > 64
+    /// let contains = set.contains([false; 7]);
     /// ```
     #[inline]
     pub fn contains(&self, state: T) -> bool {
@@ -196,9 +303,9 @@ impl<T> PartialEq for StateSet<T> {
     /// # Examples
     /// ```
     /// # use state_set::*;
-    /// #
     /// let set1 = state_set![false, true];
     /// let set2 = state_set![true, false];
+    ///
     /// assert_eq!(set1, set2);
     /// ```
     #[inline]
@@ -215,9 +322,9 @@ impl<T> From<StateSet<T>> for u64 {
     /// # Examples
     /// ```
     /// # use state_set::*;
-    /// #
     /// let set = state_set![false, true];
     /// let data: u64 = set.into();
+    ///
     /// assert_eq!(data, 0b11);
     /// ```
     #[inline]
@@ -246,15 +353,14 @@ impl<T: State> TryFrom<u64> for StateSet<T> {
     ///
     /// ```
     /// # use state_set::*;
-    /// #
-    /// let s = StateSet::<bool>::try_from(0b10);
-    /// assert_eq!(s, Ok(state_set![true]));
+    /// let set = StateSet::<bool>::try_from(0b10);
+    /// assert_eq!(set, Ok(state_set![true]));
     ///
-    /// let s = StateSet::<bool>::try_from(0b11);
-    /// assert_eq!(s, Ok(state_set![false, true]));
+    /// let set = StateSet::<bool>::try_from(0b11);
+    /// assert_eq!(set, Ok(state_set![false, true]));
     ///
-    /// let s = StateSet::<bool>::try_from(0b100);
-    /// assert!(s.is_err());
+    /// let set = StateSet::<bool>::try_from(0b100);
+    /// assert!(set.is_err());
     /// ```
     #[inline]
     fn try_from(value: u64) -> Result<Self, Self::Error> {
@@ -271,15 +377,25 @@ impl<T: State> Not for StateSet<T> {
 
     /// Returns the complement of `self`.
     ///
+    /// # Compile Errors
+    /// Fails to compile if `T::NUM_STATES > 64`.
+    ///
     /// # Examples
     /// ```
     /// # use state_set::*;
-    /// #
     /// let set = state_set![false];
+    ///
     /// assert_eq!(!set, state_set![true]);
+    /// ```
+    /// ```compile_fail
+    /// # use state_set::*;
+    /// let set = !StateSet::<[bool; 7]>::new(); // <[bool; 7]>::NUM_STATES = 128 > 64
     /// ```
     #[inline]
     fn not(self) -> Self::Output {
+        #[allow(clippy::let_unit_value)]
+        let _ = T::CHECK_NUM_STATES_AT_MOST_64;
+
         unsafe { Self::from_u64_unchecked(!self.bits & (u64::MAX >> (64 - T::NUM_STATES))) }
     }
 }
@@ -292,9 +408,9 @@ impl<T> BitAnd for StateSet<T> {
     /// # Examples
     /// ```
     /// # use state_set::*;
-    /// #
     /// let lhs = state_set![(false, false), (false, true)];
     /// let rhs = state_set![(false, true), (true, false)];
+    ///
     /// assert_eq!(lhs & rhs, state_set![(false, true)]);
     /// ```
     #[inline]
@@ -309,9 +425,9 @@ impl<T> BitAndAssign for StateSet<T> {
     /// # Examples
     /// ```
     /// # use state_set::*;
-    /// #
     /// let mut set = state_set![(false, false), (false, true)];
     /// set &= state_set![(false, true), (true, false)];
+    ///
     /// assert_eq!(set, state_set![(false, true)]);
     /// ```
     #[inline]
@@ -331,6 +447,7 @@ impl<T> BitOr for StateSet<T> {
     /// #
     /// let lhs = state_set![(false, false), (false, true)];
     /// let rhs = state_set![(false, true), (true, false)];
+    ///
     /// assert_eq!(lhs | rhs, state_set![(false, false), (false, true), (true, false)]);
     /// ```
     #[inline]
@@ -348,6 +465,7 @@ impl<T> BitOrAssign for StateSet<T> {
     /// #
     /// let mut set = state_set![(false, false), (false, true)];
     /// set |= state_set![(false, true), (true, false)];
+    ///
     /// assert_eq!(set, state_set![(false, false), (false, true), (true, false)]);
     /// ```
     #[inline]
@@ -367,6 +485,7 @@ impl<T> BitXor for StateSet<T> {
     /// #
     /// let lhs = state_set![(false, false), (false, true)];
     /// let rhs = state_set![(false, true), (true, false)];
+    ///
     /// assert_eq!(lhs ^ rhs, state_set![(false, false), (true, false)]);
     /// ```
     #[inline]
@@ -381,9 +500,9 @@ impl<T> BitXorAssign for StateSet<T> {
     /// # Examples
     /// ```
     /// # use state_set::*;
-    /// #
     /// let mut set = state_set![(false, false), (false, true)];
     /// set ^= state_set![(false, true), (true, false)];
+    ///
     /// assert_eq!(set, state_set![(false, false), (true, false)]);
     /// ```
     #[inline]
@@ -400,14 +519,14 @@ impl<T: State> Sub for StateSet<T> {
     /// # Examples
     /// ```
     /// # use state_set::*;
-    /// #
     /// let lhs = state_set![(false, false), (false, true)];
     /// let rhs = state_set![(false, true), (true, false)];
+    ///
     /// assert_eq!(lhs - rhs, state_set![(false, false)]);
     /// ```
     #[inline]
     fn sub(self, rhs: Self) -> Self::Output {
-        self & !rhs
+        unsafe { Self::from_u64_unchecked(self.bits & !rhs.bits) }
     }
 }
 
@@ -417,30 +536,40 @@ impl<T: State> SubAssign for StateSet<T> {
     /// # Examples
     /// ```
     /// # use state_set::*;
-    /// #
     /// let mut set = state_set![(false, false), (false, true)];
     /// set -= state_set![(false, true), (true, false)];
+    ///
     /// assert_eq!(set, state_set![(false, false)]);
     /// ```
     #[inline]
     fn sub_assign(&mut self, rhs: Self) {
-        *self &= !rhs;
+        self.bits &= !rhs.bits;
     }
 }
 
 impl<T: State> FromIterator<T> for StateSet<T> {
     /// Creates a [`StateSet`] from an iterator.
     ///
-    /// # Examples
+    /// # Compile Errors
+    /// Fails to compile if `T::NUM_STATES > 64`.
     ///
+    /// # Examples
     /// ```
     /// # use state_set::*;
     /// #
     /// let set = StateSet::from_iter((0..2).map(|i| i.cmp(&1)));
     /// assert_eq!(set, state_set![std::cmp::Ordering::Less, std::cmp::Ordering::Equal]);
     /// ```
+    /// ```compile_fail
+    /// # use state_set::*;
+    /// let iter = [[false; 7]].into_iter();
+    /// let set = StateSet::from_iter(iter); // <[bool; 7]>::NUM_STATES = 128 > 64
+    /// ```
     #[inline]
     fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
+        #[allow(clippy::let_unit_value)]
+        let _ = T::CHECK_NUM_STATES_AT_MOST_64;
+
         let mut set = Self::new();
         for state in iter {
             set.insert(state);
@@ -449,32 +578,119 @@ impl<T: State> FromIterator<T> for StateSet<T> {
     }
 }
 
+impl<T: State> IntoIterator for StateSet<T> {
+    type Item = T;
+    type IntoIter = Iter<T>;
+
+    #[inline]
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
+}
+
+impl<'a, T: State> IntoIterator for &'a StateSet<T> {
+    type Item = T;
+    type IntoIter = Iter<T>;
+
+    #[inline]
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
+}
+
 impl<T: State> Extend<T> for StateSet<T> {
     /// Extends the set with the states yielded by an iterator.
+    ///
+    /// # Compile Errors
+    /// Fails to compile if `T::NUM_STATES > 64`.
     ///
     /// # Examples
     ///
     /// ```
     /// # use state_set::*;
-    /// #
-    /// let mut set = state_set![false];
-    /// set.extend([true, false].iter().copied());
-    /// assert_eq!(set, state_set![false, true]);
+    /// let mut set = state_set![None];
+    /// let iter = [None, Some(false)].into_iter();
+    /// set.extend(iter);
+    ///
+    /// assert_eq!(set, state_set![None, Some(false)]);
+    /// ```
+    ///
+    /// ```compile_fail
+    /// # use state_set::*;
+    /// let mut set = state_set![];
+    /// let iter = [[false; 7], [true; 7]].into_iter();
+    /// set.extend(iter); // <[bool; 7]>::NUM_STATES = 128 > 64
     /// ```
     #[inline]
     fn extend<I: IntoIterator<Item = T>>(&mut self, iter: I) {
+        #[allow(clippy::let_unit_value)]
+        let _ = T::CHECK_NUM_STATES_AT_MOST_64;
+
         for state in iter {
             self.insert(state);
         }
     }
 }
 
+#[test]
+fn state() {}
 impl<T: State> State for StateSet<T> {
+    ///
+    /// The total number of distinct states that values of [`StateSet<T>`] can represent,
+    /// i.e., 2 to the power of [`T::NUM_STATES`](State::NUM_STATES).
+    ///
+    /// # Compile Errors
+    /// Using this constant fails to compile if `Self::NUM_STATES >= 2^32`, i.e., `T::NUM_STATES >= 32`.
+    ///
+    /// # Examples
+    /// ```
+    /// # use state_set::*;
+    /// assert_eq!(StateSet::<()>::NUM_STATES, 2);
+    /// assert_eq!(StateSet::<bool>::NUM_STATES, 4);
+    /// assert_eq!(StateSet::<Option<bool>>::NUM_STATES, 8);
+    /// assert_eq!(StateSet::<[bool; 3]>::NUM_STATES, 256);
+    /// ```
+    ///
+    /// ```compile_fail
+    /// # use state_set::*;
+    /// let num_states = StateSet::<[bool; 5]>::NUM_STATES;  // <[bool; 5]>::NUM_STATES = 32
+    /// ```
     const NUM_STATES: u32 = 1 << T::NUM_STATES;
 
+    /// Converts `self` into an index, which is an integer from `0` to `Self::NUM_STATES - 1`.
+    ///
+    /// # Examples
+    /// ```
+    /// # use state_set::*;
+    /// assert_eq!(StateSet::<bool>::new().into_index(), 0b00);
+    /// assert_eq!(state_set![false].into_index(), 0b01);
+    /// assert_eq!(state_set![true].into_index(), 0b10);
+    /// assert_eq!(bool::all().into_index(), 0b11);
+    /// ```
     #[inline]
     fn into_index(self) -> u32 {
         self.bits as u32
+    }
+
+    /// Converts `index` into a value of this type. Returns `None` if `index >= Self::STATUS`.
+    ///
+    /// # Examples
+    /// ```
+    /// # use state_set::*;
+    /// assert_eq!(StateSet::<bool>::from_index(0), Some(state_set![]));
+    /// assert_eq!(StateSet::<bool>::from_index(1), Some(state_set![false]));
+    /// assert_eq!(StateSet::<bool>::from_index(2), Some(state_set![true]));
+    /// assert_eq!(StateSet::<bool>::from_index(3), Some(bool::all()));
+    /// assert_eq!(StateSet::<bool>::from_index(4), None);
+    /// ```
+    #[inline]
+    fn from_index(index: u32) -> Option<Self> {
+        // To avoid overflow when `T::NUM_STATES >= 32`, `index >= Self::NUM_STATES` is replaced with
+        // an equivalent condition `index.checked_ilog2().map_or(true, |log| log < T::NUM_STATES)`
+        (index
+            .checked_ilog2()
+            .map_or(true, |log| log < T::NUM_STATES))
+        .then(|| unsafe { Self::from_index_unchecked(index) })
     }
 
     #[inline]
@@ -483,6 +699,33 @@ impl<T: State> State for StateSet<T> {
             bits: index as u64,
             phantom: PhantomData,
         }
+    }
+
+    /// Creates a new [`StateSet<Self>`] consisting of all the states.
+    ///
+    /// # Compile Errors
+    /// Fails to compile if `Self::NUM_STATES > 64`, i.e., `T::NUM_STATES > 6`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use state_set::*;
+    /// let set = StateSet::<bool>::all();
+    /// assert_eq!(
+    ///     set,
+    ///     state_set![state_set![], state_set![false], state_set![true], state_set![false, true]]
+    /// );
+    /// ```
+    ///
+    /// ```compile_fail
+    /// # use state_set::*;
+    /// // <[bool; 3]>::NUM_STATES = 8 > 6
+    /// // StateSet<[bool; 3]>::NUM_STATES = 2^8 = 256 > 64
+    /// let set = StateSet::<[bool; 3]>::all();
+    /// ```
+    #[inline]
+    fn all() -> StateSet<Self> {
+        !StateSet::new()
     }
 }
 
@@ -524,26 +767,6 @@ impl<'de, T: State + Deserialize<'de>> Deserialize<'de> for StateSet<T> {
     }
 }
 
-impl<T: State> IntoIterator for StateSet<T> {
-    type Item = T;
-    type IntoIter = Iter<T>;
-
-    #[inline]
-    fn into_iter(self) -> Self::IntoIter {
-        self.iter()
-    }
-}
-
-impl<'a, T: State> IntoIterator for &'a StateSet<T> {
-    type Item = T;
-    type IntoIter = Iter<T>;
-
-    #[inline]
-    fn into_iter(self) -> Self::IntoIter {
-        self.iter()
-    }
-}
-
 /// An iterator that yields the states in a [`StateSet`].
 ///
 /// This struct is created by the [`iter`](StateSet::iter) method on [`StateSet`].
@@ -553,7 +776,6 @@ impl<'a, T: State> IntoIterator for &'a StateSet<T> {
 ///
 /// ```
 /// # use state_set::*;
-///
 /// let s = state_set![true, false];
 /// let mut iter = s.iter();
 ///
@@ -561,8 +783,31 @@ impl<'a, T: State> IntoIterator for &'a StateSet<T> {
 /// assert_eq!(iter.next(), Some(true));
 /// assert_eq!(iter.next(), None);
 /// ```
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug)]
 pub struct Iter<T>(StateSet<T>);
+
+impl<T> Clone for Iter<T> {
+    #[inline]
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
+}
+
+impl<T> PartialEq for Iter<T> {
+    #[inline]
+    fn eq(&self, other: &Self) -> bool {
+        self.0 == other.0
+    }
+}
+
+impl<T> Eq for Iter<T> {}
+
+impl<T> Hash for Iter<T> {
+    #[inline]
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.0.hash(state)
+    }
+}
 
 impl<T: State> Iterator for Iter<T> {
     type Item = T;
@@ -604,47 +849,15 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_overflow() {
+    fn try_from_overflow() {
         let set = !StateSet::<[bool; 6]>::new();
         assert!(set.is_all());
         assert_eq!(StateSet::<[bool; 6]>::try_from(u64::MAX), Ok(set));
     }
 
     #[test]
-    fn try_from_u64() {
-        let try_from = StateSet::<bool>::try_from;
-        assert_eq!(try_from(0b0000), Ok(state_set![]));
-        assert_eq!(try_from(0b0001), Ok(state_set![false]));
-        assert_eq!(try_from(0b0010), Ok(state_set![true]));
-        assert_eq!(try_from(0b0011), Ok(state_set![false, true]));
-        assert!(try_from(0b0100).is_err());
-    }
-
-    #[test]
-    fn iter() {
-        let set = state_set![(false, false), (false, true)];
-        let mut iter = set.iter();
-        assert_eq!(iter.next(), Some((false, false)));
-        assert_eq!(iter.next(), Some((false, true)));
-        assert_eq!(iter.next(), None);
-    }
-
-    #[test]
-    fn into_iter() {
-        let set = state_set![(false, false), (false, true)];
-        let mut iter = set.into_iter();
-        assert_eq!(iter.next(), Some((false, false)));
-        assert_eq!(iter.next(), Some((false, true)));
-        assert_eq!(iter.next(), None);
-    }
-
-    #[test]
-    fn state() {
-        assert_eq!(StateSet::<bool>::NUM_STATES, 4);
-        assert_eq!(StateSet::<bool>::from_index(0), Some(state_set![]));
-        assert_eq!(StateSet::<bool>::from_index(1), Some(state_set![false]));
-        assert_eq!(StateSet::<bool>::from_index(2), Some(state_set![true]));
-        assert_eq!(StateSet::<bool>::from_index(3), Some(bool::all()));
+    fn state_overflow() {
+        assert_eq!(StateSet::<[bool; 5]>::from_index(0), Some(state_set![]));
     }
 
     #[test]
@@ -664,10 +877,19 @@ mod test {
     fn serde() {
         let set = state_set![(false, false), (false, true)];
 
-        let j = serde_json::to_value(set).unwrap();
+        let j = serde_json::to_value(&set).unwrap();
         assert_eq!(j, serde_json::json!([(false, false), (false, true)]));
 
         let set_deserialized: StateSet<(bool, bool)> = serde_json::from_value(j).unwrap();
         assert_eq!(set, set_deserialized);
+    }
+
+    #[test]
+    fn iter() {
+        let set = state_set![(false, false), (false, true)];
+        let mut iter = set.iter();
+        assert_eq!(iter.next(), Some((false, false)));
+        assert_eq!(iter.next(), Some((false, true)));
+        assert_eq!(iter.next(), None);
     }
 }
