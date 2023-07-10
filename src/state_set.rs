@@ -739,7 +739,7 @@ mod test {
 
     #[test]
     fn debug() {
-        assert_eq!(format!("{:?}", StateSet::<bool>::new()), "{false}");
+        assert_eq!(format!("{:?}", StateSet::<bool>::new()), "{}");
         assert_eq!(format!("{:?}", state_set![false]), "{false}");
         assert_eq!(format!("{:?}", state_set![true]), "{true}");
         assert_eq!(format!("{:?}", bool::all()), "{false, true}");
