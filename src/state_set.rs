@@ -708,7 +708,7 @@ impl<T: State + Serialize> Serialize for StateSet<T> {
     #[inline]
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         let mut seq = serializer.serialize_seq(Some(self.len() as usize))?;
-        for state in self.iter() {
+        for state in self {
             seq.serialize_element(&state)?;
         }
         seq.end()

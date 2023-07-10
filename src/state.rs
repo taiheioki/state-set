@@ -343,6 +343,7 @@ mod test {
 
     use super::*;
 
+    #[allow(clippy::cast_possible_truncation)]
     fn check<T: Clone + Debug + PartialEq + State>(states: &[T]) {
         assert_eq!(T::NUM_STATES, states.len() as u32);
         for (i, state) in states.iter().enumerate() {
@@ -447,13 +448,13 @@ mod test {
 
     #[test]
     fn std_num_fp_category() {
-        use std::num::FpCategory::*;
+        use std::num::FpCategory::{Infinite, Nan, Normal, Subnormal, Zero};
         check(&[Nan, Infinite, Zero, Subnormal, Normal]);
     }
 
     #[test]
     fn std_ops_control_flow() {
-        use std::ops::ControlFlow::*;
+        use std::ops::ControlFlow::{Break, Continue};
         check(&[Continue(false), Continue(true), Break(false), Break(true)]);
     }
 }
