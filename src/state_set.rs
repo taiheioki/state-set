@@ -19,7 +19,7 @@ use crate::State;
 ///
 /// This struct manages a set of states for a type `T` that implements [`State`].
 /// It uses a [`u64`] as a bit vector to store the presence of states, where each bit represents a state.
-#[derive(Clone, Copy, Debug)]
+#[derive(Copy, Debug)]
 pub struct StateSet<T> {
     bits: u64,
     phantom: PhantomData<T>,
@@ -94,10 +94,7 @@ impl<T> StateSet<T> {
     /// Returns an iterator over the states in the set.
     #[inline]
     pub const fn iter(&self) -> Iter<T> {
-        Iter {
-            set: self,
-            index: 0,
-        }
+        Iter(unsafe { Self::from_u64_unchecked(self.bits) })
     }
 }
 
@@ -149,7 +146,7 @@ impl<T: State> StateSet<T> {
         #[allow(clippy::let_unit_value)]
         let _ = T::CHECK_NUM_STATES_AT_MOST_64;
 
-        self.bits &= !(1 << state.into_index());
+        self.bits ^= 1 << state.into_index();
     }
 
     /// Returns `true` if the set contains the given state.
@@ -168,6 +165,13 @@ impl<T: State> StateSet<T> {
         let _ = T::CHECK_NUM_STATES_AT_MOST_64;
 
         self.bits & (1 << state.into_index()) != 0
+    }
+}
+
+impl<T> Clone for StateSet<T> {
+    #[inline]
+    fn clone(&self) -> Self {
+        unsafe { Self::from_u64_unchecked(self.bits) }
     }
 }
 
@@ -254,9 +258,6 @@ impl<T: State> TryFrom<u64> for StateSet<T> {
     /// ```
     #[inline]
     fn try_from(value: u64) -> Result<Self, Self::Error> {
-        #[allow(clippy::let_unit_value)]
-        let _ = T::CHECK_NUM_STATES_AT_MOST_64;
-
         if value & !(u64::MAX >> (64 - T::NUM_STATES)) == 0 {
             Ok(unsafe { Self::from_u64_unchecked(value) })
         } else {
@@ -279,9 +280,6 @@ impl<T: State> Not for StateSet<T> {
     /// ```
     #[inline]
     fn not(self) -> Self::Output {
-        #[allow(clippy::let_unit_value)]
-        let _ = T::CHECK_NUM_STATES_AT_MOST_64;
-
         unsafe { Self::from_u64_unchecked(!self.bits & (u64::MAX >> (64 - T::NUM_STATES))) }
     }
 }
@@ -409,9 +407,6 @@ impl<T: State> Sub for StateSet<T> {
     /// ```
     #[inline]
     fn sub(self, rhs: Self) -> Self::Output {
-        #[allow(clippy::let_unit_value)]
-        let _ = T::CHECK_NUM_STATES_AT_MOST_64;
-
         self & !rhs
     }
 }
@@ -429,9 +424,6 @@ impl<T: State> SubAssign for StateSet<T> {
     /// ```
     #[inline]
     fn sub_assign(&mut self, rhs: Self) {
-        #[allow(clippy::let_unit_value)]
-        let _ = T::CHECK_NUM_STATES_AT_MOST_64;
-
         *self &= !rhs;
     }
 }
@@ -534,18 +526,25 @@ impl<'de, T: State + Deserialize<'de>> Deserialize<'de> for StateSet<T> {
 
 impl<T: State> IntoIterator for StateSet<T> {
     type Item = T;
-    type IntoIter = IntoIter<T>;
+    type IntoIter = Iter<T>;
 
     #[inline]
     fn into_iter(self) -> Self::IntoIter {
-        IntoIter {
-            set: self,
-            index: 0,
-        }
+        self.iter()
     }
 }
 
-/// An iterator that yields references to the states in a [`StateSet`].
+impl<'a, T: State> IntoIterator for &'a StateSet<T> {
+    type Item = T;
+    type IntoIter = Iter<T>;
+
+    #[inline]
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
+}
+
+/// An iterator that yields the states in a [`StateSet`].
 ///
 /// This struct is created by the [`iter`](StateSet::iter) method on [`StateSet`].
 /// Iteration will be in ascending order according to the state's index.
@@ -563,116 +562,40 @@ impl<T: State> IntoIterator for StateSet<T> {
 /// assert_eq!(iter.next(), None);
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Iter<'a, T> {
-    set: &'a StateSet<T>,
-    index: u32,
-}
+pub struct Iter<T>(StateSet<T>);
 
-impl<'a, T: State> Iterator for Iter<'a, T> {
+impl<T: State> Iterator for Iter<T> {
     type Item = T;
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
-        while self.index < T::NUM_STATES {
-            let index = self.index;
-            self.index += 1;
-
-            if self.set.bits & (1 << index) != 0 {
-                return Some(unsafe { T::from_index_unchecked(index) });
-            }
-        }
-
-        None
+        (!self.0.is_empty()).then(|| {
+            let index = self.0.bits.trailing_zeros();
+            self.0.bits ^= 1 << index;
+            unsafe { T::from_index_unchecked(index) }
+        })
     }
 }
 
-impl<'a, T: State> DoubleEndedIterator for Iter<'a, T> {
+impl<T: State> DoubleEndedIterator for Iter<T> {
     #[inline]
     fn next_back(&mut self) -> Option<Self::Item> {
-        while self.index > 0 {
-            self.index -= 1;
-
-            if self.set.bits & (1 << self.index) != 0 {
-                return Some(unsafe { T::from_index_unchecked(self.index) });
-            }
-        }
-
-        None
+        (!self.0.is_empty()).then(|| {
+            let index = 63 - self.0.bits.leading_zeros();
+            self.0.bits ^= 1 << index;
+            unsafe { T::from_index_unchecked(index) }
+        })
     }
 }
 
-impl<'a, T: State> ExactSizeIterator for Iter<'a, T> {
+impl<T: State> ExactSizeIterator for Iter<T> {
     #[inline]
     fn len(&self) -> usize {
-        (self.set.len() - self.index) as usize
+        self.0.len() as usize
     }
 }
 
-impl<'a, T: State> FusedIterator for Iter<'a, T> {}
-
-/// An iterator that moves out the states from a [`StateSet`].
-///
-/// This struct is created by the [`into_iter`](StateSet::into_iter) method on [`StateSet`].
-/// Iteration will be in ascending order according to the state's index.
-///
-/// # Example
-///
-/// ```
-/// # use state_set::*;
-/// #
-/// let s = state_set![true, false];
-/// let mut iter = s.into_iter();
-///
-/// assert_eq!(iter.next(), Some(false));
-/// assert_eq!(iter.next(), Some(true));
-/// assert_eq!(iter.next(), None);
-/// ```
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct IntoIter<T> {
-    set: StateSet<T>,
-    index: u32,
-}
-
-impl<T: State> Iterator for IntoIter<T> {
-    type Item = T;
-
-    #[inline]
-    fn next(&mut self) -> Option<Self::Item> {
-        while self.index < T::NUM_STATES {
-            let index = self.index;
-            self.index += 1;
-
-            if self.set.bits & (1 << index) != 0 {
-                return Some(unsafe { T::from_index_unchecked(index) });
-            }
-        }
-
-        None
-    }
-}
-
-impl<T: State> DoubleEndedIterator for IntoIter<T> {
-    #[inline]
-    fn next_back(&mut self) -> Option<Self::Item> {
-        while self.index > 0 {
-            self.index -= 1;
-            if self.set.bits & (1 << self.index) != 0 {
-                return Some(unsafe { T::from_index_unchecked(self.index) });
-            }
-        }
-
-        None
-    }
-}
-
-impl<T: State> ExactSizeIterator for IntoIter<T> {
-    #[inline]
-    fn len(&self) -> usize {
-        (self.set.len() - self.index) as usize
-    }
-}
-
-impl<T: State> FusedIterator for IntoIter<T> {}
+impl<T: State> FusedIterator for Iter<T> {}
 
 #[cfg(test)]
 mod test {

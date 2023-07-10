@@ -38,7 +38,7 @@ mod state;
 pub use crate::state::State;
 
 mod state_set;
-pub use crate::state_set::{IntoIter, InvalidBitVectorError, Iter, StateSet};
+pub use crate::state_set::{InvalidBitVectorError, Iter, StateSet};
 
 /// A derive macro for automatically implementing the [`State`] trait.
 ///
