@@ -64,13 +64,16 @@ use crate::StateSet;
 /// ```
 ///
 /// # Implementing types
-/// The [`State`] trait is implemented for the following types from Rust primitives, the core/std library, and the third-party libralies:
+/// This crate implements the [`State`] trait for the following types:
+///
+/// #### Primitives
+/// - [`bool`]
 /// - Tuples of up to 12 elements, where each element implements [`State`]
 /// - Arrays, where each element implements [`State`]
-/// - [`bool`]
+///
+/// #### Core/std library
 /// - [`Option<T>`] for any `T` that implements [`State`]
 /// - [`Result<T, E>`] for any `T` and `E` that implement [`State`]
-/// - [`std::alloc::System`] (requires the `std` feature enabled by default)
 /// - [`core::cmp::Ordering`]
 /// - [`core::cmp::Reverse<T>`] for any `T` that implements [`State`]
 /// - [`core::convert::Infallible`]
@@ -78,9 +81,14 @@ use crate::StateSet;
 /// - [`core::fmt::Alignment`]
 /// - [`core::marker::PhantomData<T>`] for any `T` that implements [`State`]
 /// - [`core::marker::PhantomPinned`]
-/// - [`std::net::Shutdown`] (requires the `std` feature enabled by default)
 /// - [`core::num::FpCategory`]
 /// - [`core::ops::ControlFlow<B, C>`] for any `B` and `C` that implement [`State`]
+/// - [`std::alloc::System`] (requires the `std` feature enabled by default)
+/// - [`std::net::Shutdown`] (requires the `std` feature enabled by default)
+///
+/// #### Third-party library
+/// - [`either::Either<L, R>`] for any `L` and `R` that implement [`State`] (requires the `either` feature)
+/// - [`StateSet<T>`] for any `T` that implements [`State`]
 pub trait State: Sized {
     /// The total number of distinct states that values of this type can represent.
     ///
@@ -360,10 +368,6 @@ impl<T: State, E: State> State for Result<T, E> {
     }
 }
 
-// std::alloc
-#[cfg(feature = "std")]
-singleton_impl!(std::alloc::System);
-
 // core::cmp
 impl<T: State> State for core::cmp::Reverse<T> {
     const NUM_STATES: u32 = T::NUM_STATES;
@@ -408,10 +412,6 @@ where
 
 singleton_impl!(core::marker::PhantomPinned);
 
-// std::net
-#[cfg(feature = "std")]
-enum_impl!(std::net::Shutdown, 3, Read = 0, Write = 1, Both = 2);
-
 // core::num
 enum_impl!(
     core::num::FpCategory,
@@ -441,6 +441,36 @@ impl<B: State, C: State> State for core::ops::ControlFlow<B, C> {
             Self::Continue(C::from_index_unchecked(index))
         } else {
             Self::Break(B::from_index_unchecked(index - C::NUM_STATES))
+        }
+    }
+}
+
+// std::alloc
+#[cfg(feature = "std")]
+singleton_impl!(std::alloc::System);
+
+// std::net
+#[cfg(feature = "std")]
+enum_impl!(std::net::Shutdown, 3, Read = 0, Write = 1, Both = 2);
+
+#[cfg(feature = "either")]
+impl<L: State, R: State> State for either::Either<L, R> {
+    const NUM_STATES: u32 = L::NUM_STATES + R::NUM_STATES;
+
+    #[inline]
+    fn into_index(self) -> u32 {
+        match self {
+            Self::Left(l) => l.into_index(),
+            Self::Right(r) => L::NUM_STATES + r.into_index(),
+        }
+    }
+
+    #[inline]
+    unsafe fn from_index_unchecked(index: u32) -> Self {
+        if index < L::NUM_STATES {
+            Self::Left(L::from_index_unchecked(index))
+        } else {
+            Self::Right(R::from_index_unchecked(index - L::NUM_STATES))
         }
     }
 }
@@ -565,5 +595,12 @@ mod test {
     fn core_ops_control_flow() {
         use core::ops::ControlFlow::{Break, Continue};
         check(&[Continue(false), Continue(true), Break(false), Break(true)]);
+    }
+
+    #[cfg(feature = "either")]
+    #[test]
+    fn either() {
+        use either::Either::{Left, Right};
+        check(&[Left(false), Left(true), Right(false), Right(true)]);
     }
 }
