@@ -1,6 +1,4 @@
-# state-set
-
-[![Build Status]][actions] [![License]](#license) [![state-set: rustc 1.67+]][Rust 1.67]
+# state-set &emsp; [![Build Status]][actions] [![License]](#license) [![state-set: rustc 1.67+]][Rust 1.67]
 
 [Build Status]: https://github.com/taiheioki/state-set/actions/workflows/ci.yml/badge.svg
 [actions]: https://github.com/taiheioki/state-set/actions/workflows/ci.yml
