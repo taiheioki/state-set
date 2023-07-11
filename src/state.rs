@@ -4,8 +4,83 @@ use crate::StateSet;
 
 /// A trait for types having a finite number of possible states.
 ///
-/// Each state of a type implementing this trait is indexed by an integer from `0` to [`Self::NUM_STATES`].
-/// This traits provides methods for converting between values of the type and their indices.
+/// Types that implement [`State`] have a fixed, known number of possible states that they can represent.
+/// For example, a [`bool`] can represent two states (`true` and `false`), so it can implement [`State`]
+/// with [`NUM_STATES`](State::NUM_STATES) equal to `2`.
+///
+/// Implementing [`State`] provides methods for converting between instances of the type and their
+/// corresponding indices. The indices are integers from `0` to `NUM_STATES - 1`.
+///
+/// This trait is typically derived using `#[derive(State)]` rather than implemented manually. When derived,
+/// it automatically calculates the total number of states ([`NUM_STATES`](State::NUM_STATES)) and provides methods to convert
+/// each state to a unique index ([`into_index`](State::into_index)) and back ([`from_index`](State::from_index)).
+///
+/// # Examples
+///
+/// Deriving the `State` trait for an enum:
+///
+/// ```rust
+/// # #[cfg(feature = "alloc")] {
+/// # use state_set::*;
+/// #[derive(Debug, PartialEq, Eq, State)]
+/// enum Direction {
+///     North,
+///     South,
+///     East,
+///     West,
+/// }
+///
+/// assert_eq!(Direction::NUM_STATES, 4);
+///
+/// assert_eq!(Direction::North.into_index(), 0);
+/// assert_eq!(Direction::South.into_index(), 1);
+/// assert_eq!(Direction::East.into_index(), 2);
+/// assert_eq!(Direction::West.into_index(), 3);
+///
+/// assert_eq!(Direction::from_index(0), Some(Direction::North));
+/// assert_eq!(Direction::from_index(1), Some(Direction::South));
+/// assert_eq!(Direction::from_index(2), Some(Direction::East));
+/// assert_eq!(Direction::from_index(3), Some(Direction::West));
+/// assert_eq!(Direction::from_index(4), None);
+/// # }
+/// ```
+///
+/// Deriving the `State` trait for a struct:
+///
+/// ```rust
+/// # #[cfg(feature = "alloc")] {
+/// # use state_set::*;
+/// #[derive(Debug, PartialEq, Eq, State)]
+/// struct BooleanTriple {
+///     a: bool,
+///     b: bool,
+///     c: bool,
+/// }
+///
+/// assert_eq!(BooleanTriple::NUM_STATES, 8);
+/// assert_eq!(BooleanTriple { a: false, b: false, c: false }.into_index(), 0);
+/// assert_eq!(BooleanTriple::from_index(0), Some(BooleanTriple { a: false, b: false, c: false }));
+/// # }
+/// ```
+///
+/// # Implementing types
+/// The [`State`] trait is implemented for the following types from Rust primitives, the core/std library, and the third-party libralies:
+/// - Tuples of up to 12 elements, where each element implements [`State`]
+/// - Arrays, where each element implements [`State`]
+/// - [`bool`]
+/// - [`Option<T>`] for any `T` that implements [`State`]
+/// - [`Result<T, E>`] for any `T` and `E` that implement [`State`]
+/// - [`std::alloc::System`] (requires the `std` feature enabled by default)
+/// - [`core::cmp::Ordering`]
+/// - [`core::cmp::Reverse<T>`] for any `T` that implements [`State`]
+/// - [`core::convert::Infallible`]
+/// - [`core::fmt::Error`]
+/// - [`core::fmt::Alignment`]
+/// - [`core::marker::PhantomData<T>`] for any `T` that implements [`State`]
+/// - [`core::marker::PhantomPinned`]
+/// - [`std::net::Shutdown`] (requires the `std` feature enabled by default)
+/// - [`core::num::FpCategory`]
+/// - [`core::ops::ControlFlow<B, C>`] for any `B` and `C` that implement [`State`]
 pub trait State: Sized {
     /// The total number of distinct states that values of this type can represent.
     ///
