@@ -52,9 +52,18 @@ impl<T> StateSet<T> {
     ///
     /// # Examples
     /// ```
+    /// # #[cfg(feature = "derive")] {
     /// # use state_set::*;
-    /// let set = state_set![(false, false), (true, true)];
+    /// #[derive(State)]
+    /// enum Enum {
+    ///     A,
+    ///     B,
+    ///     C,
+    /// };
+    ///
+    /// let set = state_set![Enum::A, Enum::B];
     /// assert_eq!(set.len(), 2);
+    /// # }
     /// ```
     #[inline]
     #[must_use]
@@ -72,7 +81,7 @@ impl<T> StateSet<T> {
     /// ```
     /// ```
     /// # use state_set::*;
-    /// let set = state_set![(false, false), (true, true)];
+    /// let set = state_set![false];
     /// assert!(!set.is_empty());
     /// ```
     #[inline]
@@ -173,14 +182,22 @@ impl<T: State> StateSet<T> {
     ///
     /// # Examples
     /// ```
+    /// # #[cfg(feature = "derive")] {
     /// # use state_set::*;
-    /// let mut set = state_set![None];
-    /// set.insert(None);
-    /// set.insert(Some(false));
+    /// #[derive(Debug, Eq, PartialEq, State)]
+    /// enum Enum {
+    ///     A,
+    ///     B,
+    ///     C,
+    /// };
     ///
-    /// assert_eq!(set, state_set![None, Some(false)]);
+    /// let mut set = state_set![Enum::A];
+    /// set.insert(Enum::A);
+    /// set.insert(Enum::B);
+    ///
+    /// assert_eq!(set, state_set![Enum::A, Enum::B]);
+    /// # }
     /// ```
-    ///
     /// ```compile_fail
     /// # use state_set::*;
     /// let mut set = StateSet::<[bool; 10]>::new();  // <[bool; 10]>::NUM_STATES = 1024 > 64
@@ -198,12 +215,21 @@ impl<T: State> StateSet<T> {
     ///
     /// # Examples
     /// ```
+    /// # #[cfg(feature = "derive")] {
     /// # use state_set::*;
-    /// let mut set = state_set![None, Some(false)];
-    /// set.remove(Some(false));
-    /// set.remove(Some(true));
+    /// #[derive(Debug, Eq, PartialEq, State)]
+    /// enum Enum {
+    ///     A,
+    ///     B,
+    ///     C,
+    /// };
     ///
-    /// assert_eq!(set, state_set![None]);
+    /// let mut set = state_set![Enum::A, Enum::B];
+    /// set.remove(Enum::B);
+    /// set.remove(Enum::C);
+    ///
+    /// assert_eq!(set, state_set![Enum::A]);
+    /// # }
     /// ```
     #[inline]
     pub fn remove(&mut self, state: T) {
@@ -234,11 +260,22 @@ impl<T: State> StateSet<T> {
     ///
     /// # Examples
     /// ```
+    /// # #[cfg(feature = "derive")] {
     /// # use state_set::*;
-    /// let set = state_set![true, false];
-    /// let vec: Vec<_> = set.iter().collect();
+    /// #[derive(Debug, Eq, PartialEq, State)]
+    /// enum Enum {
+    ///     A,
+    ///     B,
+    ///     C,
+    /// };
     ///
-    /// assert_eq!(vec, vec![false, true]);
+    /// let set = state_set![Enum::C, Enum::A];
+    /// let mut iter = set.iter();
+    ///
+    /// assert_eq!(iter.next(), Some(Enum::A));
+    /// assert_eq!(iter.next(), Some(Enum::C));
+    /// assert_eq!(iter.next(), None);
+    /// # }
     /// ```
     #[inline]
     #[must_use]
@@ -285,7 +322,14 @@ impl<T> PartialEq for StateSet<T> {
     /// let set1 = state_set![false, true];
     /// let set2 = state_set![true, false];
     ///
-    /// assert_eq!(set1, set2);
+    /// assert!(set1 == set2);
+    /// ```
+    /// ```
+    /// # use state_set::*;
+    /// let set1 = state_set![false, true];
+    /// let set2 = state_set![true];
+    ///
+    /// assert!(!(set1 == set2));
     /// ```
     #[inline]
     fn eq(&self, other: &Self) -> bool {
@@ -296,15 +340,27 @@ impl<T> PartialEq for StateSet<T> {
 impl<T> Eq for StateSet<T> {}
 
 impl<T> From<StateSet<T>> for u64 {
-    /// Converts a [`StateSet`] into a [`u64`].
+    /// Converts a [`StateSet`] into a bit vector of type [`u64`].
+    ///
+    /// The resulting [`u64`] will have a bit set in position `i` if and only if the [`StateSet`] contains
+    /// a state with index `i`.
     ///
     /// # Examples
     /// ```
+    /// # #[cfg(feature = "derive")] {
     /// # use state_set::*;
-    /// let set = state_set![false, true];
-    /// let data: u64 = set.into();
+    /// #[derive(Debug, Eq, PartialEq, State)]
+    /// enum Enum {
+    ///     A,
+    ///     B,
+    ///     C,
+    /// };
     ///
-    /// assert_eq!(data, 0b11);
+    /// let set = state_set![Enum::A, Enum::C];
+    /// let bits: u64 = set.into();
+    ///
+    /// assert_eq!(bits, 0b101);
+    /// # }
     /// ```
     #[inline]
     fn from(value: StateSet<T>) -> Self {
@@ -383,11 +439,21 @@ impl<T> BitAnd for StateSet<T> {
     ///
     /// # Examples
     /// ```
+    /// # #[cfg(feature = "derive")] {
     /// # use state_set::*;
-    /// let lhs = state_set![(false, false), (false, true)];
-    /// let rhs = state_set![(false, true), (true, false)];
+    /// #[derive(Debug, Eq, PartialEq, State)]
+    /// enum Enum {
+    ///     A,
+    ///     B,
+    ///     C,
+    ///     D,
+    /// };
     ///
-    /// assert_eq!(lhs & rhs, state_set![(false, true)]);
+    /// let lhs = state_set![Enum::A, Enum::B];
+    /// let rhs = state_set![Enum::B, Enum::C];
+    ///
+    /// assert_eq!(lhs & rhs, state_set![Enum::B]);
+    /// # }
     /// ```
     #[inline]
     fn bitand(self, rhs: Self) -> Self::Output {
@@ -400,11 +466,21 @@ impl<T> BitAndAssign for StateSet<T> {
     ///
     /// # Examples
     /// ```
+    /// # #[cfg(feature = "derive")] {
     /// # use state_set::*;
-    /// let mut set = state_set![(false, false), (false, true)];
-    /// set &= state_set![(false, true), (true, false)];
+    /// #[derive(Debug, Eq, PartialEq, State)]
+    /// enum Enum {
+    ///     A,
+    ///     B,
+    ///     C,
+    ///     D,
+    /// };
     ///
-    /// assert_eq!(set, state_set![(false, true)]);
+    /// let mut set = state_set![Enum::A, Enum::B];
+    /// set &= state_set![Enum::B, Enum::C];
+    ///
+    /// assert_eq!(set, state_set![Enum::B]);
+    /// # }
     /// ```
     #[inline]
     fn bitand_assign(&mut self, rhs: Self) {
@@ -419,12 +495,21 @@ impl<T> BitOr for StateSet<T> {
     ///
     /// # Examples
     /// ```
+    /// # #[cfg(feature = "derive")] {
     /// # use state_set::*;
-    /// #
-    /// let lhs = state_set![(false, false), (false, true)];
-    /// let rhs = state_set![(false, true), (true, false)];
+    /// #[derive(Debug, Eq, PartialEq, State)]
+    /// enum Enum {
+    ///     A,
+    ///     B,
+    ///     C,
+    ///     D,
+    /// };
     ///
-    /// assert_eq!(lhs | rhs, state_set![(false, false), (false, true), (true, false)]);
+    /// let lhs = state_set![Enum::A, Enum::B];
+    /// let rhs = state_set![Enum::B, Enum::C];
+    ///
+    /// assert_eq!(lhs | rhs, state_set![Enum::A, Enum::B, Enum::C]);
+    /// # }
     /// ```
     #[inline]
     fn bitor(self, rhs: Self) -> Self::Output {
@@ -437,13 +522,21 @@ impl<T> BitOrAssign for StateSet<T> {
     ///
     /// # Examples
     /// ```
+    /// # #[cfg(feature = "derive")] {
     /// # use state_set::*;
-    /// #
-    /// let mut set = state_set![(false, false), (false, true)];
-    /// set |= state_set![(false, true), (true, false)];
+    /// #[derive(Debug, Eq, PartialEq, State)]
+    /// enum Enum {
+    ///     A,
+    ///     B,
+    ///     C,
+    ///     D,
+    /// };
     ///
-    /// assert_eq!(set, state_set![(false, false), (false, true), (true, false)]);
-    /// ```
+    /// let mut set = state_set![Enum::A, Enum::B];
+    /// set |= state_set![Enum::B, Enum::C];
+    ///
+    /// assert_eq!(set, state_set![Enum::A, Enum::B, Enum::C]);
+    /// # }
     #[inline]
     fn bitor_assign(&mut self, rhs: Self) {
         self.bits |= rhs.bits;
@@ -457,12 +550,21 @@ impl<T> BitXor for StateSet<T> {
     ///
     /// # Examples
     /// ```
+    /// # #[cfg(feature = "derive")] {
     /// # use state_set::*;
-    /// #
-    /// let lhs = state_set![(false, false), (false, true)];
-    /// let rhs = state_set![(false, true), (true, false)];
+    /// #[derive(Debug, Eq, PartialEq, State)]
+    /// enum Enum {
+    ///     A,
+    ///     B,
+    ///     C,
+    ///     D,
+    /// };
     ///
-    /// assert_eq!(lhs ^ rhs, state_set![(false, false), (true, false)]);
+    /// let lhs = state_set![Enum::A, Enum::B];
+    /// let rhs = state_set![Enum::B, Enum::C];
+    ///
+    /// assert_eq!(lhs ^ rhs, state_set![Enum::A, Enum::C]);
+    /// # }
     /// ```
     #[inline]
     fn bitxor(self, rhs: Self) -> Self::Output {
@@ -475,11 +577,21 @@ impl<T> BitXorAssign for StateSet<T> {
     ///
     /// # Examples
     /// ```
+    /// # #[cfg(feature = "derive")] {
     /// # use state_set::*;
-    /// let mut set = state_set![(false, false), (false, true)];
-    /// set ^= state_set![(false, true), (true, false)];
+    /// #[derive(Debug, Eq, PartialEq, State)]
+    /// enum Enum {
+    ///     A,
+    ///     B,
+    ///     C,
+    ///     D,
+    /// };
     ///
-    /// assert_eq!(set, state_set![(false, false), (true, false)]);
+    /// let mut set = state_set![Enum::A, Enum::B];
+    /// set ^= state_set![Enum::B, Enum::C];
+    ///
+    /// assert_eq!(set, state_set![Enum::A, Enum::C]);
+    /// # }
     /// ```
     #[inline]
     fn bitxor_assign(&mut self, rhs: Self) {
@@ -494,11 +606,21 @@ impl<T: State> Sub for StateSet<T> {
     ///
     /// # Examples
     /// ```
+    /// # #[cfg(feature = "derive")] {
     /// # use state_set::*;
-    /// let lhs = state_set![(false, false), (false, true)];
-    /// let rhs = state_set![(false, true), (true, false)];
+    /// #[derive(Debug, Eq, PartialEq, State)]
+    /// enum Enum {
+    ///     A,
+    ///     B,
+    ///     C,
+    ///     D,
+    /// };
     ///
-    /// assert_eq!(lhs - rhs, state_set![(false, false)]);
+    /// let lhs = state_set![Enum::A, Enum::B];
+    /// let rhs = state_set![Enum::B, Enum::C];
+    ///
+    /// assert_eq!(lhs - rhs, state_set![Enum::A]);
+    /// # }
     /// ```
     #[inline]
     fn sub(self, rhs: Self) -> Self::Output {
@@ -511,11 +633,21 @@ impl<T: State> SubAssign for StateSet<T> {
     ///
     /// # Examples
     /// ```
+    /// # #[cfg(feature = "derive")] {
     /// # use state_set::*;
-    /// let mut set = state_set![(false, false), (false, true)];
-    /// set -= state_set![(false, true), (true, false)];
+    /// #[derive(Debug, Eq, PartialEq, State)]
+    /// enum Enum {
+    ///     A,
+    ///     B,
+    ///     C,
+    ///     D,
+    /// };
     ///
-    /// assert_eq!(set, state_set![(false, false)]);
+    /// let mut set = state_set![Enum::A, Enum::B];
+    /// set -= state_set![Enum::B, Enum::C];
+    ///
+    /// assert_eq!(set, state_set![Enum::A]);
+    /// # }
     /// ```
     #[inline]
     fn sub_assign(&mut self, rhs: Self) {
@@ -534,7 +666,7 @@ impl<T: State> FromIterator<T> for StateSet<T> {
     /// # use state_set::*;
     /// #
     /// let set = StateSet::from_iter((0..2).map(|i| i.cmp(&1)));
-    /// assert_eq!(set, state_set![std::cmp::Ordering::Less, std::cmp::Ordering::Equal]);
+    /// assert_eq!(set, state_set![core::cmp::Ordering::Less, core::cmp::Ordering::Equal]);
     /// ```
     /// ```compile_fail
     /// # use state_set::*;
@@ -583,12 +715,22 @@ impl<T: State> Extend<T> for StateSet<T> {
     /// # Examples
     ///
     /// ```
+    /// # #[cfg(feature = "derive")] {
     /// # use state_set::*;
-    /// let mut set = state_set![None];
-    /// let iter = [None, Some(false)].into_iter();
-    /// set.extend(iter);
+    /// #[derive(Debug, Eq, PartialEq, State)]
+    /// enum Enum {
+    ///     A,
+    ///     B,
+    ///     C,
+    ///     D,
+    ///     E,
+    /// };
     ///
-    /// assert_eq!(set, state_set![None, Some(false)]);
+    /// let mut set = state_set![Enum::A, Enum::B];
+    /// set.extend([Enum::B, Enum::C, Enum::D, Enum::C].into_iter());
+    ///
+    /// assert_eq!(set, state_set![Enum::A, Enum::B, Enum::C, Enum::D]);
+    /// # }
     /// ```
     ///
     /// ```compile_fail
@@ -613,7 +755,7 @@ impl<T: State> State for StateSet<T> {
     /// i.e., 2 to the power of [`T::NUM_STATES`](State::NUM_STATES).
     ///
     /// # Compile Errors
-    /// Using this constant fails to compile if `Self::NUM_STATES >= 2^32`, i.e., `T::NUM_STATES >= 32`.
+    /// Using [`NUM_STATES`](State::NUM_STATES) fails to compile if `Self::NUM_STATES >= 2^32`, i.e., `T::NUM_STATES >= 32`.
     ///
     /// # Examples
     /// ```
@@ -623,7 +765,6 @@ impl<T: State> State for StateSet<T> {
     /// assert_eq!(StateSet::<Option<bool>>::NUM_STATES, 8);
     /// assert_eq!(StateSet::<[bool; 3]>::NUM_STATES, 256);
     /// ```
-    ///
     /// ```compile_fail
     /// # use state_set::*;
     /// let num_states = StateSet::<[bool; 5]>::NUM_STATES;  // <[bool; 5]>::NUM_STATES = 32
@@ -631,6 +772,9 @@ impl<T: State> State for StateSet<T> {
     const NUM_STATES: u32 = 1 << T::NUM_STATES;
 
     /// Converts `self` into an index, which is an integer from `0` to `Self::NUM_STATES - 1`.
+    ///
+    /// # Compile Errors
+    /// Fails to compile if `Self::NUM_STATES >= 2^32`, i.e., `T::NUM_STATES >= 32`.
     ///
     /// # Examples
     /// ```
@@ -640,9 +784,15 @@ impl<T: State> State for StateSet<T> {
     /// assert_eq!(state_set![true].into_index(), 0b10);
     /// assert_eq!(bool::all().into_index(), 0b11);
     /// ```
+    /// ```compile_fail
+    /// # use state_set::*;
+    /// let index = StateSet::<[bool; 5]>::new().into_index();  // <[bool; 5]>::NUM_STATES = 32
+    /// ```
     #[inline]
-    #[allow(clippy::cast_possible_truncation)]
     fn into_index(self) -> u32 {
+        #[allow(clippy::let_unit_value)]
+        let _ = Self::NUM_STATES;
+
         self.bits as u32
     }
 
