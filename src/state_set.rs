@@ -1,11 +1,10 @@
-use std::{
+use core::{
+    fmt,
+    fmt::{Debug, Formatter},
     hash::{Hash, Hasher},
-    iter::FusedIterator,
     marker::PhantomData,
     ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Not, Sub, SubAssign},
 };
-
-use thiserror::Error;
 
 #[cfg(feature = "serde")]
 use serde::{
@@ -14,21 +13,21 @@ use serde::{
     Deserialize, Deserializer, Serialize, Serializer,
 };
 
-use crate::State;
+use crate::{error::InvalidBitVectorError, iter::Iter, State};
 
 /// A set of states represented by a bit vector.
 ///
 /// This struct manages a set of states for a type `T` that implements [`State`].
 /// It uses a [`u64`] as a bit vector to store the presence of states, where each bit represents a state.
-#[derive(Debug)]
 pub struct StateSet<T> {
-    bits: u64,
+    pub(crate) bits: u64,
     phantom: PhantomData<T>,
 }
 
 impl<T> StateSet<T> {
     /// Creates a new, empty [`StateSet`].
     #[inline]
+    #[must_use]
     pub const fn new() -> Self {
         unsafe { Self::from_bits_unchecked(0) }
     }
@@ -39,6 +38,7 @@ impl<T> StateSet<T> {
     /// The caller must ensure that `bits` represent a valid state (that is, the bits in positions greater than
     /// [`T::NUM_STATES`](State::NUM_STATES) are not set).
     #[inline]
+    #[must_use]
     pub const unsafe fn from_bits_unchecked(bits: u64) -> Self {
         Self {
             bits,
@@ -57,6 +57,7 @@ impl<T> StateSet<T> {
     /// assert_eq!(set.len(), 2);
     /// ```
     #[inline]
+    #[must_use]
     pub const fn len(&self) -> u32 {
         self.bits.count_ones()
     }
@@ -75,6 +76,7 @@ impl<T> StateSet<T> {
     /// assert!(!set.is_empty());
     /// ```
     #[inline]
+    #[must_use]
     pub const fn is_empty(&self) -> bool {
         self.bits == 0
     }
@@ -94,22 +96,6 @@ impl<T> StateSet<T> {
         self.bits = 0;
     }
 
-    /// Returns an iterator over the states in the set.
-    /// Iteration will be in ascending order according to the state's index.
-    ///
-    /// # Examples
-    /// ```
-    /// # use state_set::*;
-    /// let set = state_set![true, false];
-    /// let vec: Vec<_> = set.iter().collect();
-    ///
-    /// assert_eq!(vec, vec![false, true]);
-    /// ```
-    #[inline]
-    pub const fn iter(&self) -> Iter<T> {
-        Iter(unsafe { Self::from_bits_unchecked(self.bits) })
-    }
-
     /// Returns `true` if the set is disjoint from another set.
     ///
     /// # Examples
@@ -123,6 +109,7 @@ impl<T> StateSet<T> {
     /// assert!(!set.is_disjoint(&state_set![true, false]));
     /// ```
     #[inline]
+    #[must_use]
     pub const fn is_disjoint(&self, other: &Self) -> bool {
         (self.bits & other.bits) == 0
     }
@@ -140,6 +127,7 @@ impl<T> StateSet<T> {
     /// assert!(set.is_subset(&state_set![false, true]));
     /// ```
     #[inline]
+    #[must_use]
     pub const fn is_subset(&self, other: &Self) -> bool {
         (self.bits & other.bits) == self.bits
     }
@@ -157,6 +145,7 @@ impl<T> StateSet<T> {
     /// assert!(!set.is_superset(&state_set![false, true]));
     /// ```
     #[inline]
+    #[must_use]
     pub const fn is_superset(&self, other: &Self) -> bool {
         (self.bits & other.bits) == other.bits
     }
@@ -172,6 +161,7 @@ impl<T: State> StateSet<T> {
     /// assert!(set.is_all());
     /// ```
     #[inline]
+    #[must_use]
     pub const fn is_all(&self) -> bool {
         T::NUM_STATES <= 64 && self.bits == u64::MAX >> (64 - T::NUM_STATES)
     }
@@ -238,12 +228,36 @@ impl<T: State> StateSet<T> {
         let index = state.into_index();
         index <= 64 && self.bits & (1 << index) != 0
     }
+
+    /// Returns an iterator over the states in the set.
+    /// Iteration will be in ascending order according to the state's index.
+    ///
+    /// # Examples
+    /// ```
+    /// # use state_set::*;
+    /// let set = state_set![true, false];
+    /// let vec: Vec<_> = set.iter().collect();
+    ///
+    /// assert_eq!(vec, vec![false, true]);
+    /// ```
+    #[inline]
+    #[must_use]
+    pub const fn iter(&self) -> Iter<T> {
+        Iter(unsafe { Self::from_bits_unchecked(self.bits) })
+    }
 }
 
 impl<T> Clone for StateSet<T> {
     #[inline]
     fn clone(&self) -> Self {
         unsafe { Self::from_bits_unchecked(self.bits) }
+    }
+}
+
+impl<T: State + Debug> Debug for StateSet<T> {
+    #[inline]
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_set().entries(self.iter()).finish()
     }
 }
 
@@ -299,13 +313,6 @@ impl<T> From<StateSet<T>> for u64 {
         value.bits
     }
 }
-
-/// Represents an error when trying to convert a `u64` into a [`StateSet`].
-///
-/// This error is used in the implementation of [`TryFrom<u64>`] for [`StateSet`].
-#[derive(Clone, Copy, Debug, Eq, Error, PartialEq)]
-#[error("The value has bits set at positions exceeding than the number of states")]
-pub struct InvalidBitVectorError;
 
 impl<T: State> TryFrom<u64> for StateSet<T> {
     type Error = InvalidBitVectorError;
@@ -636,6 +643,7 @@ impl<T: State> State for StateSet<T> {
     /// assert_eq!(bool::all().into_index(), 0b11);
     /// ```
     #[inline]
+    #[allow(clippy::cast_possible_truncation)]
     fn into_index(self) -> u32 {
         self.bits as u32
     }
@@ -664,7 +672,7 @@ impl<T: State> State for StateSet<T> {
     #[inline]
     unsafe fn from_index_unchecked(index: u32) -> Self {
         Self {
-            bits: index as u64,
+            bits: index.into(),
             phantom: PhantomData,
         }
     }
@@ -702,7 +710,7 @@ impl<T: State + Serialize> Serialize for StateSet<T> {
     #[inline]
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         let mut seq = serializer.serialize_seq(Some(self.len() as usize))?;
-        for state in self.iter() {
+        for state in self {
             seq.serialize_element(&state)?;
         }
         seq.end()
@@ -717,13 +725,13 @@ impl<'de, T: State + Deserialize<'de>> Visitor<'de> for DeserializeVisitor<T> {
     type Value = StateSet<T>;
 
     #[inline]
-    fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn expecting(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
         formatter.write_str("a sequence of states")
     }
 
     #[inline]
     fn visit_seq<S: SeqAccess<'de>>(self, mut seq: S) -> Result<Self::Value, S::Error> {
-        std::iter::from_fn(|| seq.next_element().transpose()).collect::<Result<_, _>>()
+        core::iter::from_fn(|| seq.next_element().transpose()).collect::<Result<_, _>>()
     }
 }
 
@@ -735,86 +743,20 @@ impl<'de, T: State + Deserialize<'de>> Deserialize<'de> for StateSet<T> {
     }
 }
 
-/// An iterator that yields the states in a [`StateSet`].
-///
-/// This struct is created by the [`iter`](StateSet::iter) method on [`StateSet`].
-/// Iteration will be in ascending order according to the state's index.
-///
-/// # Example
-///
-/// ```
-/// # use state_set::*;
-/// let s = state_set![true, false];
-/// let mut iter = s.iter();
-///
-/// assert_eq!(iter.next(), Some(false));
-/// assert_eq!(iter.next(), Some(true));
-/// assert_eq!(iter.next(), None);
-/// ```
-#[derive(Debug)]
-pub struct Iter<T>(StateSet<T>);
-
-impl<T> Clone for Iter<T> {
-    #[inline]
-    fn clone(&self) -> Self {
-        Self(self.0.clone())
-    }
-}
-
-impl<T> PartialEq for Iter<T> {
-    #[inline]
-    fn eq(&self, other: &Self) -> bool {
-        self.0 == other.0
-    }
-}
-
-impl<T> Eq for Iter<T> {}
-
-impl<T> Hash for Iter<T> {
-    #[inline]
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.0.hash(state)
-    }
-}
-
-impl<T: State> Iterator for Iter<T> {
-    type Item = T;
-
-    #[inline]
-    fn next(&mut self) -> Option<Self::Item> {
-        (!self.0.is_empty()).then(|| {
-            let index = self.0.bits.trailing_zeros();
-            self.0.bits ^= 1 << index;
-            unsafe { T::from_index_unchecked(index) }
-        })
-    }
-}
-
-impl<T: State> DoubleEndedIterator for Iter<T> {
-    #[inline]
-    fn next_back(&mut self) -> Option<Self::Item> {
-        (!self.0.is_empty()).then(|| {
-            let index = 63 - self.0.bits.leading_zeros();
-            self.0.bits ^= 1 << index;
-            unsafe { T::from_index_unchecked(index) }
-        })
-    }
-}
-
-impl<T: State> ExactSizeIterator for Iter<T> {
-    #[inline]
-    fn len(&self) -> usize {
-        self.0.len() as usize
-    }
-}
-
-impl<T: State> FusedIterator for Iter<T> {}
-
 #[cfg(test)]
 mod test {
     use crate::state_set;
 
     use super::*;
+
+    #[cfg(feature = "std")]
+    #[test]
+    fn debug() {
+        assert_eq!(format!("{:?}", StateSet::<bool>::new()), "{}");
+        assert_eq!(format!("{:?}", state_set![false]), "{false}");
+        assert_eq!(format!("{:?}", state_set![true]), "{true}");
+        assert_eq!(format!("{:?}", bool::all()), "{false, true}");
+    }
 
     #[test]
     fn is_all_overflow() {
@@ -861,7 +803,7 @@ mod test {
         assert_sync::<StateSet<bool>>();
     }
 
-    #[cfg(feature = "serde")]
+    #[cfg(all(feature = "serde", feature = "std"))]
     #[test]
     fn serde() {
         let set = state_set![(false, false), (false, true)];

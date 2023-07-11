@@ -1,7 +1,7 @@
 use proc_macro2::TokenStream;
 use proc_macro_crate::{crate_name, FoundCrate};
 use quote::{format_ident, quote};
-use syn::{parse_quote, Data, DeriveInput, Error, Fields, Index, Path, WhereClause};
+use syn::{parse_quote, Data, DeriveInput, Error, Fields, Index, Path, Variant, WhereClause};
 
 struct Context<'a> {
     input: &'a DeriveInput,
@@ -54,19 +54,18 @@ fn find_crate(orig_name: &str) -> Path {
     }
 }
 
-fn gen_where_clause(ctx: &Context) -> Option<WhereClause> {
+fn gen_where_clause(ctx: &Context<'_>) -> Option<WhereClause> {
     ctx.input.generics.where_clause.clone()
 }
 
 /// Generates the value of `NUM_STATES`.
-fn num_states(ctx: &Context) -> TokenStream {
+fn num_states(ctx: &Context<'_>) -> TokenStream {
     match &ctx.input.data {
         Data::Enum(data_enum) => {
-            let total_states: Vec<_> = data_enum
+            let total_states = data_enum
                 .variants
                 .iter()
-                .map(|variant| num_states_from_fields(ctx, &variant.fields))
-                .collect();
+                .map(|variant| num_states_from_fields(ctx, &variant.fields));
             quote! { #( #total_states+ )* 0 }
         }
         Data::Struct(data_struct) => num_states_from_fields(ctx, &data_struct.fields),
@@ -76,7 +75,7 @@ fn num_states(ctx: &Context) -> TokenStream {
     }
 }
 
-fn num_states_from_fields(ctx: &Context, fields: &Fields) -> TokenStream {
+fn num_states_from_fields(ctx: &Context<'_>, fields: &Fields) -> TokenStream {
     let state_set = ctx.state_set;
 
     if matches!(fields, Fields::Unit) {
@@ -89,50 +88,42 @@ fn num_states_from_fields(ctx: &Context, fields: &Fields) -> TokenStream {
         Fields::Unit => unreachable!(),
     };
 
-    let factors: Vec<_> = punctuated
-        .iter()
-        .map(|field| {
-            let field_type = &field.ty;
-            quote! { <#field_type as #state_set::State>::NUM_STATES }
-        })
-        .collect();
+    let factors = punctuated.iter().map(|field| {
+        let field_type = &field.ty;
+        quote! { <#field_type as #state_set::State>::NUM_STATES }
+    });
 
     quote! { #( #factors* )* 1 }
 }
 
 /// Generates the body of `into_index`.
-fn into_index_body(ctx: &Context) -> TokenStream {
+fn into_index_body(ctx: &Context<'_>) -> TokenStream {
     match &ctx.input.data {
         Data::Enum(data_enum) => {
             let mut base = quote! { 0 };
 
-            let arms: Vec<_> = data_enum
-                .variants
-                .iter()
-                .map(|variant: &syn::Variant| {
-                    let variant_ident = &variant.ident;
-                    let field_idents = gen_idents(&variant.fields, "x");
+            let arms = data_enum.variants.iter().map(|variant: &Variant| {
+                let variant_ident = &variant.ident;
+                let field_idents = gen_idents(&variant.fields, "x");
 
-                    let lhs = match &variant.fields {
-                        Fields::Named(_) => {
-                            quote! { Self::#variant_ident { #(#field_idents,)* } }
-                        }
-                        Fields::Unnamed(_) => {
-                            quote! { Self::#variant_ident(#(#field_idents,)* ) }
-                        }
-                        Fields::Unit => quote! { Self::#variant_ident  },
-                    };
+                let lhs = match &variant.fields {
+                    Fields::Named(_) => {
+                        quote! { Self::#variant_ident { #(#field_idents,)* } }
+                    }
+                    Fields::Unnamed(_) => {
+                        quote! { Self::#variant_ident(#(#field_idents,)* ) }
+                    }
+                    Fields::Unit => quote! { Self::#variant_ident  },
+                };
 
-                    let remainder =
-                        into_index_body_from_fields(ctx, &variant.fields, &field_idents);
-                    let rhs = quote! { #base + #remainder };
+                let remainder = into_index_body_from_fields(ctx, &variant.fields, &field_idents);
+                let rhs = quote! { #base + #remainder };
 
-                    let num_states = num_states_from_fields(ctx, &variant.fields);
-                    base = quote! { #base + #num_states };
+                let num_states = num_states_from_fields(ctx, &variant.fields);
+                base = quote! { #base + #num_states };
 
-                    quote! { #lhs => #rhs }
-                })
-                .collect();
+                quote! { #lhs => #rhs }
+            });
 
             quote! {
                 match self {
@@ -179,7 +170,7 @@ fn gen_idents(fields: &Fields, unnamed_prefix: &str) -> Vec<TokenStream> {
 }
 
 fn into_index_body_from_fields(
-    ctx: &Context,
+    ctx: &Context<'_>,
     fields: &Fields,
     idents: &[TokenStream],
 ) -> TokenStream {
@@ -197,40 +188,31 @@ fn into_index_body_from_fields(
 
     let mut base = quote! { 1 };
 
-    let terms: Vec<_> = punctuated
-        .iter()
-        .zip(idents.iter())
-        .rev()
-        .map(|(field, ident)| {
-            let field_type = &field.ty;
-            let term = quote! { <#field_type as #state_set::State>::into_index(#ident) * #base };
-            base = quote! { #base * <#field_type as #state_set::State>::NUM_STATES };
-            term
-        })
-        .collect();
+    let terms = punctuated.iter().zip(idents).rev().map(|(field, ident)| {
+        let field_type = &field.ty;
+        let term = quote! { <#field_type as #state_set::State>::into_index(#ident) * #base };
+        base = quote! { #base * <#field_type as #state_set::State>::NUM_STATES };
+        term
+    });
 
     quote! { #( #terms+ )* 0 }
 }
 
 /// Generate the body of `from_index_unchecked`.
-fn from_index_unchecked_body(ctx: &Context) -> TokenStream {
+fn from_index_unchecked_body(ctx: &Context<'_>) -> TokenStream {
     match &ctx.input.data {
         Data::Enum(data_enum) => {
-            let statements: Vec<_> = data_enum
-                .variants
-                .iter()
-                .map(|variant| {
-                    let variant_ident = &variant.ident;
-                    let num_states = num_states_from_fields(ctx, &variant.fields);
-                    let fields_init = fields_init_list(ctx, &variant.fields);
-                    quote! {
-                        if index < #num_states {
-                            return Self::#variant_ident #fields_init;
-                        }
-                        let index = index - #num_states;
+            let statements = data_enum.variants.iter().map(|variant| {
+                let variant_ident = &variant.ident;
+                let num_states = num_states_from_fields(ctx, &variant.fields);
+                let fields_init = fields_init_list(ctx, &variant.fields);
+                quote! {
+                    if index < #num_states {
+                        return Self::#variant_ident #fields_init;
                     }
-                })
-                .collect();
+                    let index = index - #num_states;
+                }
+            });
 
             quote! {
                 #(#statements)*
@@ -247,7 +229,7 @@ fn from_index_unchecked_body(ctx: &Context) -> TokenStream {
     }
 }
 
-fn fields_init_list(ctx: &Context, fields: &Fields) -> TokenStream {
+fn fields_init_list(ctx: &Context<'_>, fields: &Fields) -> TokenStream {
     let state_set = ctx.state_set;
     let mut base = quote! { 1 };
 
