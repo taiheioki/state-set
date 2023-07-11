@@ -1,4 +1,4 @@
-use std::mem::MaybeUninit;
+use core::mem::MaybeUninit;
 
 use crate::StateSet;
 
@@ -120,7 +120,7 @@ impl<T: State, const N: usize> State for [T; N] {
             index /= T::NUM_STATES;
         }
 
-        // The following is equivalent to `std::mem::transmute::<_, [T; N]>(states)`,
+        // The following is equivalent to `core::mem::transmute::<_, [T; N]>(states)`,
         // which doesn't compile on Rust 1.69.0.
         // Reference: https://github.com/rust-lang/rust/issues/61956
         #[allow(clippy::borrow_as_ptr, clippy::ptr_as_ptr)]
@@ -255,10 +255,11 @@ impl<T: State, E: State> State for Result<T, E> {
 }
 
 // std::alloc
+#[cfg(feature = "std")]
 singleton_impl!(std::alloc::System);
 
-// std::cmp
-impl<T: State> State for std::cmp::Reverse<T> {
+// core::cmp
+impl<T: State> State for core::cmp::Reverse<T> {
     const NUM_STATES: u32 = T::NUM_STATES;
 
     #[inline]
@@ -272,17 +273,17 @@ impl<T: State> State for std::cmp::Reverse<T> {
     }
 }
 
-enum_impl!(std::cmp::Ordering, 3, Less = 0, Equal = 1, Greater = 2);
+enum_impl!(core::cmp::Ordering, 3, Less = 0, Equal = 1, Greater = 2);
 
-// std::convert
-enum_impl!(std::convert::Infallible, 0);
+// core::convert
+enum_impl!(core::convert::Infallible, 0);
 
-// std::fmt
-singleton_impl!(std::fmt::Error);
-enum_impl!(std::fmt::Alignment, 3, Left = 0, Right = 1, Center = 2);
+// core::fmt
+singleton_impl!(core::fmt::Error);
+enum_impl!(core::fmt::Alignment, 3, Left = 0, Right = 1, Center = 2);
 
-// std::marker
-impl<T> State for std::marker::PhantomData<T>
+// core::marker
+impl<T> State for core::marker::PhantomData<T>
 where
     T: ?Sized,
 {
@@ -299,14 +300,15 @@ where
     }
 }
 
-singleton_impl!(std::marker::PhantomPinned);
+singleton_impl!(core::marker::PhantomPinned);
 
 // std::net
+#[cfg(feature = "std")]
 enum_impl!(std::net::Shutdown, 3, Read = 0, Write = 1, Both = 2);
 
-// std::num
+// core::num
 enum_impl!(
-    std::num::FpCategory,
+    core::num::FpCategory,
     5,
     Nan = 0,
     Infinite = 1,
@@ -315,8 +317,8 @@ enum_impl!(
     Normal = 4
 );
 
-// std::ops
-impl<B: State, C: State> State for std::ops::ControlFlow<B, C> {
+// core::ops
+impl<B: State, C: State> State for core::ops::ControlFlow<B, C> {
     const NUM_STATES: u32 = B::NUM_STATES + C::NUM_STATES;
 
     #[inline]
@@ -339,7 +341,7 @@ impl<B: State, C: State> State for std::ops::ControlFlow<B, C> {
 
 #[cfg(test)]
 mod test {
-    use std::fmt::Debug;
+    use core::fmt::Debug;
 
     use super::*;
 
@@ -401,7 +403,7 @@ mod test {
 
     #[test]
     fn result() {
-        type Result = std::result::Result<bool, Option<bool>>;
+        type Result = core::result::Result<bool, Option<bool>>;
         check(&[
             Result::Ok(false),
             Result::Ok(true),
@@ -411,8 +413,9 @@ mod test {
         ]);
     }
 
+    #[cfg(feature = "std")]
     #[test]
-    fn std_alloc_system() {
+    fn core_alloc_system() {
         use std::alloc::System;
         assert_eq!(System.into_index(), 0);
         assert!(System::from_index(0).is_some());
@@ -420,41 +423,41 @@ mod test {
     }
 
     #[test]
-    fn std_cmp_reverse() {
-        use std::cmp::Reverse;
+    fn core_cmp_reverse() {
+        use core::cmp::Reverse;
         check(&[Reverse(true), Reverse(false)]);
     }
 
     #[test]
-    fn std_cmp_ordering() {
-        use std::cmp::Ordering;
+    fn core_cmp_ordering() {
+        use core::cmp::Ordering;
         check(&[Ordering::Less, Ordering::Equal, Ordering::Greater]);
     }
 
     #[test]
-    fn std_convert_infallible() {
-        check::<std::convert::Infallible>(&[]);
+    fn core_convert_infallible() {
+        check::<core::convert::Infallible>(&[]);
     }
 
     #[test]
-    fn std_fmt_error() {
-        check(&[std::fmt::Error]);
+    fn core_fmt_error() {
+        check(&[core::fmt::Error]);
     }
 
     #[test]
-    fn std_marker_phantom_data() {
-        check(&[std::marker::PhantomData::<usize>]);
+    fn core_marker_phantom_data() {
+        check(&[core::marker::PhantomData::<usize>]);
     }
 
     #[test]
-    fn std_num_fp_category() {
-        use std::num::FpCategory::{Infinite, Nan, Normal, Subnormal, Zero};
+    fn core_num_fp_category() {
+        use core::num::FpCategory::{Infinite, Nan, Normal, Subnormal, Zero};
         check(&[Nan, Infinite, Zero, Subnormal, Normal]);
     }
 
     #[test]
-    fn std_ops_control_flow() {
-        use std::ops::ControlFlow::{Break, Continue};
+    fn core_ops_control_flow() {
+        use core::ops::ControlFlow::{Break, Continue};
         check(&[Continue(false), Continue(true), Break(false), Break(true)]);
     }
 }

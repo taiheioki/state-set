@@ -1,6 +1,6 @@
 //! A module for providing iterators.
 
-use std::{
+use core::{
     fmt::{Debug, Formatter, Result},
     hash::{Hash, Hasher},
     iter::FusedIterator,

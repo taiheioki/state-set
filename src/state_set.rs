@@ -1,4 +1,4 @@
-use std::{
+use core::{
     fmt,
     fmt::{Debug, Formatter},
     hash::{Hash, Hasher},
@@ -723,13 +723,13 @@ impl<'de, T: State + Deserialize<'de>> Visitor<'de> for DeserializeVisitor<T> {
     type Value = StateSet<T>;
 
     #[inline]
-    fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn expecting(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
         formatter.write_str("a sequence of states")
     }
 
     #[inline]
     fn visit_seq<S: SeqAccess<'de>>(self, mut seq: S) -> Result<Self::Value, S::Error> {
-        std::iter::from_fn(|| seq.next_element().transpose()).collect::<Result<_, _>>()
+        core::iter::from_fn(|| seq.next_element().transpose()).collect::<Result<_, _>>()
     }
 }
 
@@ -747,6 +747,7 @@ mod test {
 
     use super::*;
 
+    #[cfg(feature = "std")]
     #[test]
     fn debug() {
         assert_eq!(format!("{:?}", StateSet::<bool>::new()), "{}");
@@ -800,7 +801,7 @@ mod test {
         assert_sync::<StateSet<bool>>();
     }
 
-    #[cfg(feature = "serde")]
+    #[cfg(all(feature = "serde", feature = "std"))]
     #[test]
     fn serde() {
         let set = state_set![(false, false), (false, true)];

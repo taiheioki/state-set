@@ -11,6 +11,7 @@
 //! This makes it effortless to leverage the functionality of `state-set` for your own types.
 //! Just derive [`State`] for your type, and you're ready to use it in a [`StateSet`].
 
+#![cfg_attr(not(feature = "std"), no_std)]
 #![warn(
     missing_debug_implementations,
     missing_docs,
