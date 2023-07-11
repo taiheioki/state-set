@@ -68,7 +68,7 @@ use crate::StateSet;
 ///
 /// #### Primitives
 /// - [`bool`]
-/// - Tuples of up to 12 elements, where each element implements [`State`]
+/// - Tuples of up to 16 elements, where each element implements [`State`]
 /// - Arrays, where each element implements [`State`]
 ///
 /// #### Core/std library
