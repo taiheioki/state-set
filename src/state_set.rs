@@ -789,6 +789,7 @@ impl<T: State> State for StateSet<T> {
     /// let index = StateSet::<[bool; 5]>::new().into_index();  // <[bool; 5]>::NUM_STATES = 32
     /// ```
     #[inline]
+    #[allow(clippy::cast_possible_truncation)]
     fn into_index(self) -> u32 {
         #[allow(clippy::let_unit_value)]
         let _ = Self::NUM_STATES;
