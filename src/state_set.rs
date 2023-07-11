@@ -349,7 +349,7 @@ impl<T> From<StateSet<T>> for u64 {
     /// ```
     /// # #[cfg(feature = "derive")] {
     /// # use state_set::*;
-    /// #[derive(Debug, Eq, PartialEq, State)]
+    /// #[derive(State)]
     /// enum Enum {
     ///     A,
     ///     B,
@@ -779,10 +779,10 @@ impl<T: State> State for StateSet<T> {
     /// # Examples
     /// ```
     /// # use state_set::*;
-    /// assert_eq!(StateSet::<bool>::new().into_index(), 0b00);
+    /// assert_eq!(bool::empty_set().into_index(), 0b00);
     /// assert_eq!(state_set![false].into_index(), 0b01);
     /// assert_eq!(state_set![true].into_index(), 0b10);
-    /// assert_eq!(bool::all().into_index(), 0b11);
+    /// assert_eq!(bool::all_set().into_index(), 0b11);
     /// ```
     /// ```compile_fail
     /// # use state_set::*;
@@ -802,10 +802,10 @@ impl<T: State> State for StateSet<T> {
     /// # Examples
     /// ```
     /// # use state_set::*;
-    /// assert_eq!(StateSet::<bool>::from_index(0), Some(state_set![]));
+    /// assert_eq!(StateSet::<bool>::from_index(0), Some(bool::empty_set()));
     /// assert_eq!(StateSet::<bool>::from_index(1), Some(state_set![false]));
     /// assert_eq!(StateSet::<bool>::from_index(2), Some(state_set![true]));
-    /// assert_eq!(StateSet::<bool>::from_index(3), Some(bool::all()));
+    /// assert_eq!(StateSet::<bool>::from_index(3), Some(bool::all_set()));
     /// assert_eq!(StateSet::<bool>::from_index(4), None);
     /// ```
     #[inline]
@@ -835,7 +835,7 @@ impl<T: State> State for StateSet<T> {
     ///
     /// ```
     /// # use state_set::*;
-    /// let set = StateSet::<bool>::all();
+    /// let set = StateSet::<bool>::all_set();
     /// assert_eq!(
     ///     set,
     ///     state_set![state_set![], state_set![false], state_set![true], state_set![false, true]]
@@ -849,7 +849,7 @@ impl<T: State> State for StateSet<T> {
     /// let set = StateSet::<[bool; 3]>::all();
     /// ```
     #[inline]
-    fn all() -> StateSet<Self> {
+    fn all_set() -> StateSet<Self> {
         !StateSet::new()
     }
 }
@@ -904,7 +904,7 @@ mod test {
         assert_eq!(format!("{:?}", StateSet::<bool>::new()), "{}");
         assert_eq!(format!("{:?}", state_set![false]), "{false}");
         assert_eq!(format!("{:?}", state_set![true]), "{true}");
-        assert_eq!(format!("{:?}", bool::all()), "{false, true}");
+        assert_eq!(format!("{:?}", bool::all_set()), "{false, true}");
     }
 
     #[test]

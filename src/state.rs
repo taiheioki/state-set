@@ -34,9 +34,17 @@ pub trait State: Sized {
     /// # Examples
     ///
     /// ```
+    /// # #[cfg(feature = "alloc")] {
     /// # use state_set::*;
-    /// assert_eq!(false.into_index(), 0);
-    /// assert_eq!(true.into_index(), 1);
+    /// #[derive(State)]
+    /// enum Enum {
+    ///     A,
+    ///     B,
+    /// }
+    ///
+    /// assert_eq!(Enum::from_index(Enum::A), 0);
+    /// assert_eq!(Enum::from_index(Enum::A), 1);
+    /// # }
     /// ```
     #[must_use]
     fn into_index(self) -> u32;
@@ -46,10 +54,18 @@ pub trait State: Sized {
     /// # Examples
     ///
     /// ```
+    /// # #[cfg(feature = "alloc")] {
     /// # use state_set::*;
-    /// assert_eq!(bool::from_index(0), Some(false));
-    /// assert_eq!(bool::from_index(1), Some(true));
-    /// assert_eq!(bool::from_index(2), None);
+    /// #[derive(Debug, PartialEq, Eq, State)]
+    /// enum Enum {
+    ///     A,
+    ///     B,
+    /// }
+    ///
+    /// assert_eq!(Enum::from_index(0), Some(Enum::A));
+    /// assert_eq!(Enum::from_index(1), Some(Enum::B));
+    /// assert_eq!(Enum::from_index(2), None);
+    /// # }
     /// ```
     #[inline]
     #[must_use]
@@ -72,19 +88,34 @@ pub trait State: Sized {
     #[must_use]
     unsafe fn from_index_unchecked(index: u32) -> Self;
 
+    /// Creates a new [`StateSet<Self>`] consisting of no states.
+    ///
+    /// # Example
+    /// ```
+    /// # use state_set::*;
+    /// let set = bool::empty_set();
+    ///
+    /// assert_eq!(set, state_set![]);
+    /// ```
+    #[inline]
+    #[must_use]
+    fn empty_set() -> StateSet<Self> {
+        StateSet::new()
+    }
+
     /// Creates a new [`StateSet<Self>`] consisting of all the states.
     ///
     /// # Example
     /// ```
     /// # use state_set::*;
-    /// let set = bool::all();
+    /// let set = bool::all_set();
     ///
     /// assert_eq!(set, state_set![false, true]);
     /// ```
     #[inline]
     #[must_use]
-    fn all() -> StateSet<Self> {
-        !StateSet::new()
+    fn all_set() -> StateSet<Self> {
+        !Self::empty_set()
     }
 }
 
