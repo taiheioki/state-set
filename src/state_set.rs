@@ -247,6 +247,8 @@ impl<T> Clone for StateSet<T> {
     }
 }
 
+impl<T> Copy for StateSet<T> {}
+
 impl<T> Default for StateSet<T> {
     /// Creates a new, empty [`StateSet`].
     #[inline]
@@ -878,5 +880,31 @@ mod test {
         assert_eq!(iter.next(), Some((false, false)));
         assert_eq!(iter.next(), Some((false, true)));
         assert_eq!(iter.next(), None);
+    }
+
+    #[test]
+    fn has_copy_trait() {
+        #[derive(Copy, Clone, State)]
+        enum Foo {
+            A,
+            B
+        }
+
+        let set = state_set![Foo::A, Foo::B];
+        let set_a = set;
+        let set_b = set;
+    }
+
+    #[test]
+    fn has_copy_trait_when_t_has_not_copy() {
+        #[derive(Clone, State)]
+        enum Foo {
+            A,
+            B
+        }
+
+        let set = state_set![Foo::A, Foo::B];
+        let set_a = set;
+        let set_b = set;
     }
 }
