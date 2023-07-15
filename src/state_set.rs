@@ -808,7 +808,7 @@ mod test {
     fn serde() {
         let set = state_set![(false, false), (false, true)];
 
-        let j = serde_json::to_value(&set).unwrap();
+        let j = serde_json::to_value(set).unwrap();
         assert_eq!(j, serde_json::json!([(false, false), (false, true)]));
 
         let set_deserialized: StateSet<(bool, bool)> = serde_json::from_value(j).unwrap();
@@ -825,28 +825,30 @@ mod test {
     }
 
     #[test]
+    #[allow(clippy::no_effect_underscore_binding)]
     fn has_copy_trait() {
         #[derive(Copy, Clone, State)]
         enum Foo {
             A,
-            B
+            B,
         }
 
         let set = state_set![Foo::A, Foo::B];
-        let set_a = set;
-        let set_b = set;
+        let _set_a = set;
+        let _set_b = set;
     }
 
     #[test]
+    #[allow(clippy::no_effect_underscore_binding)]
     fn has_copy_trait_when_t_has_not_copy() {
         #[derive(Clone, State)]
         enum Foo {
             A,
-            B
+            B,
         }
 
         let set = state_set![Foo::A, Foo::B];
-        let set_a = set;
-        let set_b = set;
+        let _set_a = set;
+        let _set_b = set;
     }
 }
