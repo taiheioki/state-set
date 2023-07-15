@@ -250,7 +250,7 @@ impl<T: State> StateSet<T> {
 impl<T> Clone for StateSet<T> {
     #[inline]
     fn clone(&self) -> Self {
-        unsafe { Self::from_bits_unchecked(self.bits) }
+        *self
     }
 }
 
@@ -826,6 +826,7 @@ mod test {
 
     #[test]
     #[allow(clippy::no_effect_underscore_binding)]
+    #[cfg(feature = "derive")]
     fn has_copy_trait() {
         #[derive(Copy, Clone, State)]
         enum Foo {
@@ -840,6 +841,7 @@ mod test {
 
     #[test]
     #[allow(clippy::no_effect_underscore_binding)]
+    #[cfg(feature = "derive")]
     fn has_copy_trait_when_t_has_not_copy() {
         #[derive(Clone, State)]
         enum Foo {
