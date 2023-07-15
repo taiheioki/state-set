@@ -975,31 +975,43 @@ mod test {
         assert_eq!(iter.next(), None);
     }
 
-    #[test]
-    #[allow(clippy::no_effect_underscore_binding)]
     #[cfg(feature = "derive")]
+    #[allow(clippy::no_effect_underscore_binding)]
+    #[test]
     fn has_copy_trait() {
-        #[derive(Copy, Clone, State)]
-        enum Foo {
-            A,
-            B,
-        }
-
-        let set = state_set![Foo::A, Foo::B];
+        let set = state_set![true, true];
         let _set_a = set;
         let _set_b = set;
     }
 
     #[test]
-    #[allow(clippy::no_effect_underscore_binding)]
     #[cfg(feature = "derive")]
+    #[allow(clippy::no_effect_underscore_binding)]
     fn has_copy_trait_when_t_has_not_copy() {
-        #[derive(Clone, State)]
+        #[derive(Clone)]
         enum Foo {
             A,
             B,
         }
 
+        impl State for Foo {
+            const NUM_STATES: u32 = 2;
+
+            fn into_index(self) -> u32 {
+                match self {
+                    Foo::A => 0,
+                    Foo::B => 1,
+                }
+            }
+
+            unsafe fn from_index_unchecked(index: u32) -> Self {
+                match index {
+                    0 => Foo::A,
+                    1 => Foo::B,
+                    _ => unreachable!(),
+                }
+            }
+        }
         let set = state_set![Foo::A, Foo::B];
         let _set_a = set;
         let _set_b = set;
