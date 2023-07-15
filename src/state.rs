@@ -4,8 +4,91 @@ use crate::StateSet;
 
 /// A trait for types having a finite number of possible states.
 ///
-/// Each state of a type implementing this trait is indexed by an integer from `0` to [`Self::NUM_STATES`].
-/// This traits provides methods for converting between values of the type and their indices.
+/// Types that implement [`State`] have a fixed, known number of possible states that they can represent.
+/// For example, a [`bool`] can represent two states (`true` and `false`), so it can implement [`State`]
+/// with [`NUM_STATES`](State::NUM_STATES) equal to `2`.
+///
+/// Implementing [`State`] provides methods for converting between instances of the type and their
+/// corresponding indices. The indices are integers from `0` to `NUM_STATES - 1`.
+///
+/// This trait is typically derived using `#[derive(State)]` rather than implemented manually. When derived,
+/// it automatically calculates the total number of states ([`NUM_STATES`](State::NUM_STATES)) and provides methods to convert
+/// each state to a unique index ([`into_index`](State::into_index)) and back ([`from_index`](State::from_index)).
+///
+/// # Examples
+///
+/// Deriving the `State` trait for an enum:
+///
+/// ```rust
+/// # #[cfg(feature = "alloc")] {
+/// # use state_set::*;
+/// #[derive(Debug, PartialEq, Eq, State)]
+/// enum Direction {
+///     North,
+///     South,
+///     East,
+///     West,
+/// }
+///
+/// assert_eq!(Direction::NUM_STATES, 4);
+///
+/// assert_eq!(Direction::North.into_index(), 0);
+/// assert_eq!(Direction::South.into_index(), 1);
+/// assert_eq!(Direction::East.into_index(), 2);
+/// assert_eq!(Direction::West.into_index(), 3);
+///
+/// assert_eq!(Direction::from_index(0), Some(Direction::North));
+/// assert_eq!(Direction::from_index(1), Some(Direction::South));
+/// assert_eq!(Direction::from_index(2), Some(Direction::East));
+/// assert_eq!(Direction::from_index(3), Some(Direction::West));
+/// assert_eq!(Direction::from_index(4), None);
+/// # }
+/// ```
+///
+/// Deriving the `State` trait for a struct:
+///
+/// ```rust
+/// # #[cfg(feature = "alloc")] {
+/// # use state_set::*;
+/// #[derive(Debug, PartialEq, Eq, State)]
+/// struct BooleanTriple {
+///     a: bool,
+///     b: bool,
+///     c: bool,
+/// }
+///
+/// assert_eq!(BooleanTriple::NUM_STATES, 8);
+/// assert_eq!(BooleanTriple { a: false, b: false, c: false }.into_index(), 0);
+/// assert_eq!(BooleanTriple::from_index(0), Some(BooleanTriple { a: false, b: false, c: false }));
+/// # }
+/// ```
+///
+/// # Implementing types
+/// This crate implements the [`State`] trait for the following types:
+///
+/// #### Primitives
+/// - [`bool`]
+/// - Tuples of up to 16 elements, where each element implements [`State`]
+/// - Arrays, where each element implements [`State`]
+///
+/// #### Core/std library
+/// - [`Option<T>`] for any `T` that implements [`State`]
+/// - [`Result<T, E>`] for any `T` and `E` that implement [`State`]
+/// - [`core::cmp::Ordering`]
+/// - [`core::cmp::Reverse<T>`] for any `T` that implements [`State`]
+/// - [`core::convert::Infallible`]
+/// - [`core::fmt::Error`]
+/// - [`core::fmt::Alignment`]
+/// - [`core::marker::PhantomData<T>`] for any `T` that implements [`State`]
+/// - [`core::marker::PhantomPinned`]
+/// - [`core::num::FpCategory`]
+/// - [`core::ops::ControlFlow<B, C>`] for any `B` and `C` that implement [`State`]
+/// - [`std::alloc::System`] (requires the `std` feature enabled by default)
+/// - [`std::net::Shutdown`] (requires the `std` feature enabled by default)
+///
+/// #### Third-party library
+/// - [`either::Either<L, R>`] for any `L` and `R` that implement [`State`] (requires the `either` feature)
+/// - [`StateSet<T>`] for any `T` that implements [`State`]
 pub trait State: Sized {
     /// The total number of distinct states that values of this type can represent.
     ///
@@ -34,9 +117,17 @@ pub trait State: Sized {
     /// # Examples
     ///
     /// ```
+    /// # #[cfg(feature = "alloc")] {
     /// # use state_set::*;
-    /// assert_eq!(false.into_index(), 0);
-    /// assert_eq!(true.into_index(), 1);
+    /// #[derive(State)]
+    /// enum Enum {
+    ///     A,
+    ///     B,
+    /// }
+    ///
+    /// assert_eq!(Enum::from_index(Enum::A), 0);
+    /// assert_eq!(Enum::from_index(Enum::A), 1);
+    /// # }
     /// ```
     #[must_use]
     fn into_index(self) -> u32;
@@ -46,10 +137,18 @@ pub trait State: Sized {
     /// # Examples
     ///
     /// ```
+    /// # #[cfg(feature = "alloc")] {
     /// # use state_set::*;
-    /// assert_eq!(bool::from_index(0), Some(false));
-    /// assert_eq!(bool::from_index(1), Some(true));
-    /// assert_eq!(bool::from_index(2), None);
+    /// #[derive(Debug, PartialEq, Eq, State)]
+    /// enum Enum {
+    ///     A,
+    ///     B,
+    /// }
+    ///
+    /// assert_eq!(Enum::from_index(0), Some(Enum::A));
+    /// assert_eq!(Enum::from_index(1), Some(Enum::B));
+    /// assert_eq!(Enum::from_index(2), None);
+    /// # }
     /// ```
     #[inline]
     #[must_use]
@@ -72,19 +171,34 @@ pub trait State: Sized {
     #[must_use]
     unsafe fn from_index_unchecked(index: u32) -> Self;
 
+    /// Creates a new [`StateSet<Self>`] consisting of no states.
+    ///
+    /// # Example
+    /// ```
+    /// # use state_set::*;
+    /// let set = bool::empty_set();
+    ///
+    /// assert_eq!(set, state_set![]);
+    /// ```
+    #[inline]
+    #[must_use]
+    fn empty_set() -> StateSet<Self> {
+        StateSet::new()
+    }
+
     /// Creates a new [`StateSet<Self>`] consisting of all the states.
     ///
     /// # Example
     /// ```
     /// # use state_set::*;
-    /// let set = bool::all();
+    /// let set = bool::all_set();
     ///
     /// assert_eq!(set, state_set![false, true]);
     /// ```
     #[inline]
     #[must_use]
-    fn all() -> StateSet<Self> {
-        !StateSet::new()
+    fn all_set() -> StateSet<Self> {
+        !Self::empty_set()
     }
 }
 
@@ -254,10 +368,6 @@ impl<T: State, E: State> State for Result<T, E> {
     }
 }
 
-// std::alloc
-#[cfg(feature = "std")]
-singleton_impl!(std::alloc::System);
-
 // core::cmp
 impl<T: State> State for core::cmp::Reverse<T> {
     const NUM_STATES: u32 = T::NUM_STATES;
@@ -302,10 +412,6 @@ where
 
 singleton_impl!(core::marker::PhantomPinned);
 
-// std::net
-#[cfg(feature = "std")]
-enum_impl!(std::net::Shutdown, 3, Read = 0, Write = 1, Both = 2);
-
 // core::num
 enum_impl!(
     core::num::FpCategory,
@@ -335,6 +441,36 @@ impl<B: State, C: State> State for core::ops::ControlFlow<B, C> {
             Self::Continue(C::from_index_unchecked(index))
         } else {
             Self::Break(B::from_index_unchecked(index - C::NUM_STATES))
+        }
+    }
+}
+
+// std::alloc
+#[cfg(feature = "std")]
+singleton_impl!(std::alloc::System);
+
+// std::net
+#[cfg(feature = "std")]
+enum_impl!(std::net::Shutdown, 3, Read = 0, Write = 1, Both = 2);
+
+#[cfg(feature = "either")]
+impl<L: State, R: State> State for either::Either<L, R> {
+    const NUM_STATES: u32 = L::NUM_STATES + R::NUM_STATES;
+
+    #[inline]
+    fn into_index(self) -> u32 {
+        match self {
+            Self::Left(l) => l.into_index(),
+            Self::Right(r) => L::NUM_STATES + r.into_index(),
+        }
+    }
+
+    #[inline]
+    unsafe fn from_index_unchecked(index: u32) -> Self {
+        if index < L::NUM_STATES {
+            Self::Left(L::from_index_unchecked(index))
+        } else {
+            Self::Right(R::from_index_unchecked(index - L::NUM_STATES))
         }
     }
 }
@@ -459,5 +595,12 @@ mod test {
     fn core_ops_control_flow() {
         use core::ops::ControlFlow::{Break, Continue};
         check(&[Continue(false), Continue(true), Break(false), Break(true)]);
+    }
+
+    #[cfg(feature = "either")]
+    #[test]
+    fn either() {
+        use either::Either::{Left, Right};
+        check(&[Left(false), Left(true), Right(false), Right(true)]);
     }
 }

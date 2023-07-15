@@ -1,6 +1,10 @@
-# state-set
+# state-set &emsp; [![Build Status]][actions] [![License]](#license) [![state-set: rustc 1.67+]][Rust 1.67]
 
-[![CI](https://github.com/taiheioki/state-set/actions/workflows/ci.yml/badge.svg)](https://github.com/taiheioki/state-set/actions/workflows/ci.yml) ![license](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue)
+[Build Status]: https://github.com/taiheioki/state-set/actions/workflows/ci.yml/badge.svg
+[actions]: https://github.com/taiheioki/state-set/actions/workflows/ci.yml
+[License]: https://img.shields.io/badge/license-MIT%2FApache--2.0-blue
+[state-set: rustc 1.67+]: https://img.shields.io/badge/state--set-rustc_1.67+-lightgray.svg
+[Rust 1.67]: https://blog.rust-lang.org/2023/01/26/Rust-1.67.0.html
 
 `state-set` is a Rust crate providing a way to manage a set of states as a bit vector.
 

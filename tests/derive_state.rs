@@ -195,3 +195,27 @@ fn enum_with_data() {
         Some(EnumWithData::G { x: (), y: true })
     );
 }
+
+#[derive(Debug, PartialEq, Eq, State)]
+struct StructWithGenerics<T>(T);
+
+#[test]
+fn struct_with_generics() {
+    assert_eq!(StructWithGenerics(false).into_index(), 0);
+    assert_eq!(StructWithGenerics(true).into_index(), 1);
+}
+
+#[derive(Debug, PartialEq, Eq, State)]
+enum EnumWithGenerics<T>
+where
+    T: State,
+{
+    A { x: T },
+}
+
+#[test]
+fn enum_with_generics() {
+    assert_eq!(EnumWithGenerics::<bool>::NUM_STATES, 2);
+    assert_eq!(EnumWithGenerics::<bool>::A { x: false }.into_index(), 0);
+    assert_eq!(EnumWithGenerics::<bool>::A { x: true }.into_index(), 1);
+}
