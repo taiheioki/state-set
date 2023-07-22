@@ -29,7 +29,7 @@ pub struct Iter<T>(pub(crate) StateSet<T>);
 impl<T> Clone for Iter<T> {
     #[inline]
     fn clone(&self) -> Self {
-        Self(self.0.clone())
+        Self(self.0)
     }
 }
 

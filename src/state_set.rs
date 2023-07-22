@@ -287,7 +287,7 @@ impl<T: State> StateSet<T> {
 impl<T> Clone for StateSet<T> {
     #[inline]
     fn clone(&self) -> Self {
-        unsafe { Self::from_bits_unchecked(self.bits) }
+        *self
     }
 }
 
@@ -297,6 +297,8 @@ impl<T: State + Debug> Debug for StateSet<T> {
         f.debug_set().entries(self.iter()).finish()
     }
 }
+
+impl<T> Copy for StateSet<T> {}
 
 impl<T> Default for StateSet<T> {
     /// Creates a new, empty [`StateSet`].
@@ -957,10 +959,61 @@ mod test {
     fn serde() {
         let set = state_set![(false, false), (false, true)];
 
-        let j = serde_json::to_value(&set).unwrap();
+        let j = serde_json::to_value(set).unwrap();
         assert_eq!(j, serde_json::json!([(false, false), (false, true)]));
 
         let set_deserialized: StateSet<(bool, bool)> = serde_json::from_value(j).unwrap();
         assert_eq!(set, set_deserialized);
+    }
+
+    #[test]
+    fn iter() {
+        let set = state_set![(false, false), (false, true)];
+        let mut iter = set.iter();
+        assert_eq!(iter.next(), Some((false, false)));
+        assert_eq!(iter.next(), Some((false, true)));
+        assert_eq!(iter.next(), None);
+    }
+
+    #[cfg(feature = "derive")]
+    #[allow(clippy::no_effect_underscore_binding)]
+    #[test]
+    fn has_copy_trait() {
+        let set = state_set![true, true];
+        let _set_a = set;
+        let _set_b = set;
+    }
+
+    #[test]
+    #[cfg(feature = "derive")]
+    #[allow(clippy::no_effect_underscore_binding)]
+    fn has_copy_trait_when_t_has_not_copy() {
+        #[derive(Clone)]
+        enum Foo {
+            A,
+            B,
+        }
+
+        impl State for Foo {
+            const NUM_STATES: u32 = 2;
+
+            fn into_index(self) -> u32 {
+                match self {
+                    Foo::A => 0,
+                    Foo::B => 1,
+                }
+            }
+
+            unsafe fn from_index_unchecked(index: u32) -> Self {
+                match index {
+                    0 => Foo::A,
+                    1 => Foo::B,
+                    _ => unreachable!(),
+                }
+            }
+        }
+        let set = state_set![Foo::A, Foo::B];
+        let _set_a = set;
+        let _set_b = set;
     }
 }
