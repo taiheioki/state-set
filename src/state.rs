@@ -234,13 +234,10 @@ impl<T: State, const N: usize> State for [T; N] {
             index /= T::NUM_STATES;
         }
 
-        // The following is equivalent to `core::mem::transmute::<_, [T; N]>(states)`,
-        // which doesn't compile on Rust 1.69.0.
+        // The following is equivalent to `core::mem::transmute::<_, [T; N]>(array)`,
+        // which doesn't compile on Rust 1.73.0.
         // Reference: https://github.com/rust-lang/rust/issues/61956
-        #[allow(clippy::borrow_as_ptr, clippy::ptr_as_ptr)]
-        let res = (&mut array as *mut _ as *mut [T; N]).read();
-        core::mem::forget(array);
-        res
+        array.map(|x| x.assume_init())
     }
 }
 

@@ -206,7 +206,7 @@ impl<T: State> StateSet<T> {
     #[inline]
     pub fn insert(&mut self, state: T) {
         #[allow(clippy::let_unit_value)]
-        let _ = T::CHECK_NUM_STATES_AT_MOST_64;
+        let () = T::CHECK_NUM_STATES_AT_MOST_64;
 
         self.bits |= 1 << state.into_index();
     }
@@ -428,7 +428,7 @@ impl<T: State> Not for StateSet<T> {
     #[inline]
     fn not(self) -> Self::Output {
         #[allow(clippy::let_unit_value)]
-        let _ = T::CHECK_NUM_STATES_AT_MOST_64;
+        let () = T::CHECK_NUM_STATES_AT_MOST_64;
 
         unsafe { Self::from_bits_unchecked(!self.bits & (u64::MAX >> (64 - T::NUM_STATES))) }
     }
@@ -678,7 +678,7 @@ impl<T: State> FromIterator<T> for StateSet<T> {
     #[inline]
     fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
         #[allow(clippy::let_unit_value)]
-        let _ = T::CHECK_NUM_STATES_AT_MOST_64;
+        let () = T::CHECK_NUM_STATES_AT_MOST_64;
 
         let mut set = Self::new();
         for state in iter {
