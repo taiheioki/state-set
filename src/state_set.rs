@@ -18,7 +18,7 @@ use crate::{error::InvalidBitVectorError, iter::Iter, State};
 /// A set of states represented by a bit vector.
 ///
 /// This struct manages a set of states for a type `T` that implements [`State`].
-/// It uses a [`u64`] as a bit vector to store the presence of states, where each bit represents a state.
+/// It uses a [`u64`] as a bit vector to store the presence of states, where each bit corresponds to a state.
 pub struct StateSet<T> {
     pub(crate) bits: u64,
     phantom: PhantomData<T>,
@@ -35,7 +35,7 @@ impl<T> StateSet<T> {
     /// Creates a new instance of [`StateSet`] from [`u64`] without checking the validity of the bits.
     ///
     /// # Safety
-    /// The caller must ensure that `bits` represent a valid state (that is, the bits in positions greater than
+    /// The caller must ensure that `bits` represent a valid state (i.e. the bits in positions greater than
     /// [`T::NUM_STATES`](State::NUM_STATES) are not set).
     #[inline]
     #[must_use]

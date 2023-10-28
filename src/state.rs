@@ -68,8 +68,8 @@ use crate::StateSet;
 ///
 /// #### Primitives
 /// - [`bool`]
-/// - Tuples of up to 16 elements, where each element implements [`State`]
-/// - Arrays, where each element implements [`State`]
+/// - Tuples of up to 16 elements, where each type implements [`State`]
+/// - Arrays of a type implementing [`State`]
 ///
 /// #### Core/std library
 /// - [`Option<T>`] for any `T` that implements [`State`]
@@ -157,7 +157,7 @@ pub trait State: Sized {
         (index < Self::NUM_STATES).then(|| unsafe { Self::from_index_unchecked(index) })
     }
 
-    /// Converts `index` into a value of this type without checking that `index` is valid.
+    /// Converts `index` into a value of this type without checking the validity of `index`.
     ///
     /// # Safety
     /// The caller must ensure that `index` is less than [`Self::NUM_STATES`].
