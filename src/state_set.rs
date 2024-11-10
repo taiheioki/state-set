@@ -19,9 +19,9 @@ use crate::{bits::Bits, error::InvalidBitVectorError, iter::Iter, State};
 ///
 /// This struct manages a set of states for a type `T` that implements [`State`].
 /// It uses a [`u64`] as a bit vector to store the presence of states, where each bit corresponds to a state.
-pub struct StateSet<T, const B: usize> {
-    pub(crate) bits: [u8; B],
-    phantom: PhantomData<T>,
+pub struct StateSet<T: State> {
+    pub(crate) bits: [u8; T::NUM_STATES as usize],
+    _phantom: PhantomData<T>,
 }
 
 impl<T, const B: usize> StateSet<T, B> {
@@ -35,7 +35,7 @@ impl<T, const B: usize> StateSet<T, B> {
     pub const unsafe fn from_bits_unchecked(bits: B) -> Self {
         Self {
             bits,
-            phantom: PhantomData,
+            _phantom: PhantomData,
         }
     }
 }
@@ -761,7 +761,7 @@ impl<T: State, const B: usize> State for StateSet<T, B> {
     unsafe fn from_index_unchecked(index: u32) -> Self {
         Self {
             bits: index.into(),
-            phantom: PhantomData,
+            _phantom: PhantomData,
         }
     }
 

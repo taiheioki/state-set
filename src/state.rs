@@ -1,11 +1,11 @@
 use core::mem::MaybeUninit;
 
-use crate::StateSet;
+use crate::{bits::Bits, StateSet};
 
 /// A trait for types having a finite number of possible states.
 ///
 /// Types that implement [`State`] have a fixed, known number of possible states that they can represent.
-/// For example, a [`bool`] can represent two states (`true` and `false`), so it can implement [`State`]
+/// For example, [`bool`] can represent two states (`true` and `false`), so it can implement [`State`]
 /// with [`NUM_STATES`](State::NUM_STATES) equal to `2`.
 ///
 /// Implementing [`State`] provides methods for converting between instances of the type and their
@@ -45,7 +45,7 @@ use crate::StateSet;
 /// # }
 /// ```
 ///
-/// Deriving the `State` trait for a struct:
+/// Deriving [`State`] for a struct:
 ///
 /// ```rust
 /// # #[cfg(feature = "alloc")] {
@@ -105,9 +105,10 @@ pub trait State: Sized {
     /// assert_eq!(<[bool; 3]>::NUM_STATES, 8);
     /// ```
     const NUM_STATES: u32;
-    const BYTES: u32 = Self::NUM_STATES / 8 + (Self::NUM_STATES % 8 != 0) as u32;
 
-    // A compile-time check that `Self::NUM_STATES` is at most 64.
+    type BitsStorage: Bits;
+
+    // A compile-time check that [`Self::NUM_STATES`] is at most 64.
     #[doc(hidden)]
     const CHECK_NUM_STATES_AT_MOST_64: () = {
         let _ = 64 - Self::NUM_STATES;
@@ -133,7 +134,7 @@ pub trait State: Sized {
     #[must_use]
     fn into_index(self) -> u32;
 
-    /// Converts `index` into a value of this type. Returns `None` if `index >= Self::STATUS`.
+    /// Converts `index` into a value of this type. Returns [`None`] if `index >= Self::STATUS`.
     ///
     /// # Examples
     ///
@@ -172,7 +173,7 @@ pub trait State: Sized {
     #[must_use]
     unsafe fn from_index_unchecked(index: u32) -> Self;
 
-    /// Creates a new [`StateSet<Self>`] consisting of no states.
+    /// Creates new [`StateSet<Self>`] consisting of no states.
     ///
     /// # Example
     /// ```
@@ -183,11 +184,11 @@ pub trait State: Sized {
     /// ```
     #[inline]
     #[must_use]
-    fn empty_set<const B: usize>() -> StateSet<Self, B> {
+    fn empty_set() -> StateSet<Self> {
         StateSet::new()
     }
 
-    /// Creates a new [`StateSet<Self>`] consisting of all the states.
+    /// Creates new [`StateSet<Self>`] consisting of all the states.
     ///
     /// # Example
     /// ```
@@ -198,13 +199,14 @@ pub trait State: Sized {
     /// ```
     #[inline]
     #[must_use]
-    fn all_set<const B: usize>() -> StateSet<Self, B> {
+    fn all_set() -> StateSet<Self> {
         !Self::empty_set()
     }
 }
 
 impl State for bool {
     const NUM_STATES: u32 = 2;
+    type BitsStorage = u8;
 
     #[inline]
     fn into_index(self) -> u32 {
@@ -297,6 +299,7 @@ macro_rules! singleton_impl {
     ($ty:ty) => {
         impl State for $ty {
             const NUM_STATES: u32 = 1;
+            type BitsStorage = u8;
 
             #[inline]
             fn into_index(self) -> u32 {

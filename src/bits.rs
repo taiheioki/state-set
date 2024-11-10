@@ -46,34 +46,42 @@ macro_rules! generate_bits_impl {
             const ZERO: Self = 0;
             const FULL: Self = Self::MAX;
 
+            #[inline]
             fn is_zero(&self) -> bool {
                 *self == 0
             }
 
+            #[inline]
             fn set_zero(&mut self) {
                 *self = 0
             }
 
+            #[inline]
             fn count_ones(&self) -> u32 {
-                self.count_ones()
+                <$ty>::count_ones(*self)
             }
 
+            #[inline]
             fn leading_zeros(&self) -> u32 {
-                self.leading_zeros()
+                <$ty>::leading_zeros(*self)
             }
 
+            #[inline]
             fn trailing_zeros(&self) -> u32 {
-                self.trailing_ones()
+                <$ty>::trailing_zeros(*self)
             }
 
+            #[inline]
             fn get_bit(&self, index: u32) -> Option<bool> {
                 (index < Self::BITS).then(|| (*self >> index) & 1 == 1)
             }
 
+            #[inline]
             fn set_bit(&mut self, index: u32) {
                 *self |= 1 << index;
             }
 
+            #[inline]
             fn unset_bit(&mut self, index: u32) {
                 *self &= !(1 << index);
             }
