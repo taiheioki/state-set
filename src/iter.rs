@@ -6,7 +6,7 @@ use core::{
     iter::FusedIterator,
 };
 
-use crate::{State, StateSet};
+use crate::{bits::Bits, State, StateSet};
 
 /// An iterator that yields the states in a [`StateSet`].
 ///
@@ -24,18 +24,18 @@ use crate::{State, StateSet};
 /// assert_eq!(iter.next(), Some(true));
 /// assert_eq!(iter.next(), None);
 /// ```
-pub struct Iter<T>(pub(crate) StateSet<T>);
+pub struct Iter<T, const B: usize>(pub(crate) StateSet<T, B>);
 
-impl<T> Clone for Iter<T> {
+impl<T, const B: usize> Clone for Iter<T, B> {
     #[inline]
     fn clone(&self) -> Self {
         Self(self.0)
     }
 }
 
-impl<T> Debug for Iter<T>
+impl<T, const B: usize> Debug for Iter<T, B>
 where
-    StateSet<T>: Debug,
+    StateSet<T, B>: Debug,
 {
     #[inline]
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
@@ -43,54 +43,54 @@ where
     }
 }
 
-impl<T> PartialEq for Iter<T> {
+impl<T, const B: usize> PartialEq for Iter<T, B> {
     #[inline]
     fn eq(&self, other: &Self) -> bool {
         self.0 == other.0
     }
 }
 
-impl<T> Eq for Iter<T> {}
+impl<T, const B: usize> Eq for Iter<T, B> {}
 
-impl<T> Hash for Iter<T> {
+impl<T, const B: usize> Hash for Iter<T, B> {
     #[inline]
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.0.hash(state);
     }
 }
 
-impl<T: State> Iterator for Iter<T> {
+impl<T: State, const B: usize> Iterator for Iter<T, B> {
     type Item = T;
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         (!self.0.is_empty()).then(|| {
             let index = self.0.bits.trailing_zeros();
-            self.0.bits ^= 1 << index;
+            self.0.bits.unset_bit(index);
             unsafe { T::from_index_unchecked(index) }
         })
     }
 }
 
-impl<T: State> DoubleEndedIterator for Iter<T> {
+impl<T: State, const B: usize> DoubleEndedIterator for Iter<T, B> {
     #[inline]
     fn next_back(&mut self) -> Option<Self::Item> {
         (!self.0.is_empty()).then(|| {
-            let index = 63 - self.0.bits.leading_zeros();
-            self.0.bits ^= 1 << index;
+            let index = B::BITS - 1 - self.0.bits.leading_zeros();
+            self.0.bits.unset_bit(index);
             unsafe { T::from_index_unchecked(index) }
         })
     }
 }
 
-impl<T: State> ExactSizeIterator for Iter<T> {
+impl<T: State, const B: usize> ExactSizeIterator for Iter<T, B> {
     #[inline]
     fn len(&self) -> usize {
         self.0.len() as usize
     }
 }
 
-impl<T: State> FusedIterator for Iter<T> {}
+impl<T: State, const B: usize> FusedIterator for Iter<T, B> {}
 
 #[cfg(test)]
 mod test {

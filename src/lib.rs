@@ -27,6 +27,7 @@ pub use crate::state::State;
 mod state_set;
 pub use crate::state_set::StateSet;
 
+pub mod bits;
 pub mod error;
 pub mod iter;
 

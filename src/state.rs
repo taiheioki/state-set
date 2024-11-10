@@ -92,7 +92,7 @@ use crate::StateSet;
 pub trait State: Sized {
     /// The total number of distinct states that values of this type can represent.
     ///
-    /// The states of the type are associated with unique indices from `0` up to but not including [`Self::NUM_STATES`].
+    /// The states of the type are associated with unique indices from `0` to `Self::NUM_STATES - 1`.
     /// This means [`Self::NUM_STATES`] gives the count of the distinct states of the type.
     ///
     /// # Example
@@ -105,6 +105,7 @@ pub trait State: Sized {
     /// assert_eq!(<[bool; 3]>::NUM_STATES, 8);
     /// ```
     const NUM_STATES: u32;
+    const BYTES: u32 = Self::NUM_STATES / 8 + (Self::NUM_STATES % 8 != 0) as u32;
 
     // A compile-time check that `Self::NUM_STATES` is at most 64.
     #[doc(hidden)]
@@ -182,7 +183,7 @@ pub trait State: Sized {
     /// ```
     #[inline]
     #[must_use]
-    fn empty_set() -> StateSet<Self> {
+    fn empty_set<const B: usize>() -> StateSet<Self, B> {
         StateSet::new()
     }
 
@@ -197,7 +198,7 @@ pub trait State: Sized {
     /// ```
     #[inline]
     #[must_use]
-    fn all_set() -> StateSet<Self> {
+    fn all_set<const B: usize>() -> StateSet<Self, B> {
         !Self::empty_set()
     }
 }

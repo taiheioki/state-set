@@ -13,25 +13,18 @@ use serde::{
     Deserialize, Deserializer, Serialize, Serializer,
 };
 
-use crate::{error::InvalidBitVectorError, iter::Iter, State};
+use crate::{bits::Bits, error::InvalidBitVectorError, iter::Iter, State};
 
 /// A set of states represented by a bit vector.
 ///
 /// This struct manages a set of states for a type `T` that implements [`State`].
 /// It uses a [`u64`] as a bit vector to store the presence of states, where each bit corresponds to a state.
-pub struct StateSet<T> {
-    pub(crate) bits: u64,
+pub struct StateSet<T, const B: usize> {
+    pub(crate) bits: [u8; B],
     phantom: PhantomData<T>,
 }
 
-impl<T> StateSet<T> {
-    /// Creates a new, empty [`StateSet`].
-    #[inline]
-    #[must_use]
-    pub const fn new() -> Self {
-        unsafe { Self::from_bits_unchecked(0) }
-    }
-
+impl<T, const B: usize> StateSet<T, B> {
     /// Creates a new instance of [`StateSet`] from [`u64`] without checking the validity of the bits.
     ///
     /// # Safety
@@ -39,11 +32,20 @@ impl<T> StateSet<T> {
     /// [`T::NUM_STATES`](State::NUM_STATES) are not set).
     #[inline]
     #[must_use]
-    pub const unsafe fn from_bits_unchecked(bits: u64) -> Self {
+    pub const unsafe fn from_bits_unchecked(bits: B) -> Self {
         Self {
             bits,
             phantom: PhantomData,
         }
+    }
+}
+
+impl<T, const B: usize> StateSet<T, B> {
+    /// Creates a new, empty [`StateSet`].
+    #[inline]
+    #[must_use]
+    pub const fn new() -> Self {
+        unsafe { Self::from_bits_unchecked(B::ZERO) }
     }
 
     /// Returns the number of states in the set.
@@ -87,7 +89,7 @@ impl<T> StateSet<T> {
     #[inline]
     #[must_use]
     pub const fn is_empty(&self) -> bool {
-        self.bits == 0
+        self.bits.is_zero()
     }
 
     /// Removes all states from the set.
@@ -102,7 +104,7 @@ impl<T> StateSet<T> {
     /// ```
     #[inline]
     pub fn clear(&mut self) {
-        self.bits = 0;
+        self.bits.set_zero()
     }
 
     /// Returns `true` if the set is disjoint from another set.
@@ -120,7 +122,7 @@ impl<T> StateSet<T> {
     #[inline]
     #[must_use]
     pub const fn is_disjoint(&self, other: &Self) -> bool {
-        (self.bits & other.bits) == 0
+        (self.bits & other.bits).is_zero()
     }
 
     /// Returns `true` if the set is a subset of another set.
@@ -160,7 +162,7 @@ impl<T> StateSet<T> {
     }
 }
 
-impl<T: State> StateSet<T> {
+impl<T: State, const B: usize> StateSet<T, B> {
     /// Returns `true` if the set contains all the states.
     ///
     /// # Examples
@@ -172,7 +174,8 @@ impl<T: State> StateSet<T> {
     #[inline]
     #[must_use]
     pub const fn is_all(&self) -> bool {
-        T::NUM_STATES <= 64 && self.bits == u64::MAX >> (64 - T::NUM_STATES)
+        //T::NUM_STATES <= B && self.bits == B::FULL >> (B::BITS - T::NUM_STATES)
+        todo!()
     }
 
     /// Insert a state into the set.
@@ -208,7 +211,7 @@ impl<T: State> StateSet<T> {
         #[allow(clippy::let_unit_value)]
         let () = T::CHECK_NUM_STATES_AT_MOST_64;
 
-        self.bits |= 1 << state.into_index();
+        self.bits.set_bit(state.into_index())
     }
 
     /// Remove a state from the set.
@@ -235,7 +238,7 @@ impl<T: State> StateSet<T> {
     pub fn remove(&mut self, state: T) {
         let index = state.into_index();
         if index <= 64 {
-            self.bits &= !(1 << index);
+            self.bits.unset_bit(index);
         }
     }
 
@@ -252,7 +255,7 @@ impl<T: State> StateSet<T> {
     #[inline]
     pub fn contains(&self, state: T) -> bool {
         let index = state.into_index();
-        index <= 64 && self.bits & (1 << index) != 0
+        self.bits.get_bit(index).unwrap_or(false)
     }
 
     /// Returns an iterator over the states in the set.
@@ -279,28 +282,28 @@ impl<T: State> StateSet<T> {
     /// ```
     #[inline]
     #[must_use]
-    pub const fn iter(&self) -> Iter<T> {
+    pub const fn iter(&self) -> StateSet<T, B> {
         Iter(unsafe { Self::from_bits_unchecked(self.bits) })
     }
 }
 
-impl<T> Clone for StateSet<T> {
+impl<T, const B: usize> Clone for StateSet<T, B> {
     #[inline]
     fn clone(&self) -> Self {
         *self
     }
 }
 
-impl<T: State + Debug> Debug for StateSet<T> {
+impl<T: State + Debug, const B: usize> Debug for StateSet<T, B> {
     #[inline]
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_set().entries(self.iter()).finish()
     }
 }
 
-impl<T> Copy for StateSet<T> {}
+impl<T, const B: usize> Copy for StateSet<T, B> {}
 
-impl<T> Default for StateSet<T> {
+impl<T, const B: usize> Default for StateSet<T, B> {
     /// Creates a new, empty [`StateSet`].
     #[inline]
     fn default() -> Self {
@@ -308,14 +311,14 @@ impl<T> Default for StateSet<T> {
     }
 }
 
-impl<T> Hash for StateSet<T> {
+impl<T, const B: usize> Hash for StateSet<T, B> {
     #[inline]
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.bits.hash(state);
     }
 }
 
-impl<T> PartialEq for StateSet<T> {
+impl<T, const B: usize> PartialEq for StateSet<T, B> {
     /// Returns `true` if the two sets have the same states.
     ///
     /// # Examples
@@ -339,74 +342,9 @@ impl<T> PartialEq for StateSet<T> {
     }
 }
 
-impl<T> Eq for StateSet<T> {}
+impl<T, const B: usize> Eq for StateSet<T, B> {}
 
-impl<T> From<StateSet<T>> for u64 {
-    /// Converts a [`StateSet`] into a bit vector of type [`u64`].
-    ///
-    /// The resulting [`u64`] will have a bit set in position `i` if and only if the [`StateSet`] contains
-    /// a state with index `i`.
-    ///
-    /// # Examples
-    /// ```
-    /// # #[cfg(feature = "derive")] {
-    /// # use state_set::*;
-    /// #[derive(State)]
-    /// enum Enum {
-    ///     A,
-    ///     B,
-    ///     C,
-    /// };
-    ///
-    /// let set = state_set![Enum::A, Enum::C];
-    /// let bits: u64 = set.into();
-    ///
-    /// assert_eq!(bits, 0b101);
-    /// # }
-    /// ```
-    #[inline]
-    fn from(value: StateSet<T>) -> Self {
-        value.bits
-    }
-}
-
-impl<T: State> TryFrom<u64> for StateSet<T> {
-    type Error = InvalidBitVectorError;
-
-    /// Tries to convert a [`u64`] into a [`StateSet`].
-    ///
-    /// This method attempts to create a [`StateSet`] from a bit vector. The method succeeds if and only if
-    /// the bit vector is valid (that is, the bits in positions greater than [`T::NUM_STATES`](State::NUM_STATES)
-    /// are not set).
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use state_set::*;
-    /// let set = StateSet::<bool>::try_from(0b10);
-    /// assert_eq!(set, Ok(state_set![true]));
-    /// ```
-    /// ```
-    /// # use state_set::*;
-    /// let set = StateSet::<bool>::try_from(0b11);
-    /// assert_eq!(set, Ok(state_set![false, true]));
-    /// ```
-    /// ```
-    /// # use state_set::*;
-    /// let set = StateSet::<bool>::try_from(0b100);
-    /// assert!(set.is_err());
-    /// ```
-    #[inline]
-    fn try_from(value: u64) -> Result<Self, Self::Error> {
-        if T::NUM_STATES >= 64 || value & !(u64::MAX >> (64 - T::NUM_STATES)) == 0 {
-            Ok(unsafe { Self::from_bits_unchecked(value) })
-        } else {
-            Err(InvalidBitVectorError)
-        }
-    }
-}
-
-impl<T: State> Not for StateSet<T> {
+impl<T: State, const B: usize> Not for StateSet<T, B> {
     type Output = Self;
 
     /// Returns the complement of `self`.
@@ -430,11 +368,12 @@ impl<T: State> Not for StateSet<T> {
         #[allow(clippy::let_unit_value)]
         let () = T::CHECK_NUM_STATES_AT_MOST_64;
 
-        unsafe { Self::from_bits_unchecked(!self.bits & (u64::MAX >> (64 - T::NUM_STATES))) }
+        // unsafe { Self::from_bits_unchecked(!self.bits & (B::FULL >> (B::BITS - T::NUM_STATES))) }
+        todo!()
     }
 }
 
-impl<T> BitAnd for StateSet<T> {
+impl<T, const B: usize> BitAnd for StateSet<T, B> {
     type Output = Self;
 
     /// Returns the intersection of `self` and `rhs`.
@@ -463,7 +402,7 @@ impl<T> BitAnd for StateSet<T> {
     }
 }
 
-impl<T> BitAndAssign for StateSet<T> {
+impl<T, const B: usize> BitAndAssign for StateSet<T, B> {
     /// Replaces `self` with the intersection of `self` and `rhs`.
     ///
     /// # Examples
@@ -490,7 +429,7 @@ impl<T> BitAndAssign for StateSet<T> {
     }
 }
 
-impl<T> BitOr for StateSet<T> {
+impl<T, const B: usize> BitOr for StateSet<T, B> {
     type Output = Self;
 
     /// Returns the union of `self` and `rhs`.
@@ -519,7 +458,7 @@ impl<T> BitOr for StateSet<T> {
     }
 }
 
-impl<T> BitOrAssign for StateSet<T> {
+impl<T, const B: usize> BitOrAssign for StateSet<T, B> {
     /// Replaces `self` with the union of `self` and `rhs`.
     ///
     /// # Examples
@@ -545,7 +484,7 @@ impl<T> BitOrAssign for StateSet<T> {
     }
 }
 
-impl<T> BitXor for StateSet<T> {
+impl<T, const B: usize> BitXor for StateSet<T, B> {
     type Output = Self;
 
     /// Returns the symmetric difference of `self` and `rhs`.
@@ -574,7 +513,7 @@ impl<T> BitXor for StateSet<T> {
     }
 }
 
-impl<T> BitXorAssign for StateSet<T> {
+impl<T, const B: usize> BitXorAssign for StateSet<T, B> {
     /// Replaces `self` with the symmetric difference of `self` and `rhs`.
     ///
     /// # Examples
@@ -601,7 +540,7 @@ impl<T> BitXorAssign for StateSet<T> {
     }
 }
 
-impl<T: State> Sub for StateSet<T> {
+impl<T: State, const B: usize> Sub for StateSet<T, B> {
     type Output = Self;
 
     /// Returns the set difference of `self` and `rhs`.
@@ -630,7 +569,7 @@ impl<T: State> Sub for StateSet<T> {
     }
 }
 
-impl<T: State> SubAssign for StateSet<T> {
+impl<T: State, const B: usize> SubAssign for StateSet<T, B> {
     /// Replaces `self` with the set difference of `self` and `rhs`.
     ///
     /// # Examples
@@ -657,7 +596,7 @@ impl<T: State> SubAssign for StateSet<T> {
     }
 }
 
-impl<T: State> FromIterator<T> for StateSet<T> {
+impl<T: State, const B: usize> FromIterator<T> for StateSet<T, B> {
     /// Creates a [`StateSet`] from an iterator.
     ///
     /// # Compile Errors
@@ -688,9 +627,9 @@ impl<T: State> FromIterator<T> for StateSet<T> {
     }
 }
 
-impl<T: State> IntoIterator for StateSet<T> {
+impl<T: State, const B: usize> IntoIterator for StateSet<T, B> {
     type Item = T;
-    type IntoIter = Iter<T>;
+    type IntoIter = StateSet<T, B>;
 
     #[inline]
     fn into_iter(self) -> Self::IntoIter {
@@ -698,9 +637,9 @@ impl<T: State> IntoIterator for StateSet<T> {
     }
 }
 
-impl<'a, T: State> IntoIterator for &'a StateSet<T> {
+impl<'a, T: State, const B: usize> IntoIterator for &'a StateSet<T, B> {
     type Item = T;
-    type IntoIter = Iter<T>;
+    type IntoIter = StateSet<T, B>;
 
     #[inline]
     fn into_iter(self) -> Self::IntoIter {
@@ -708,7 +647,7 @@ impl<'a, T: State> IntoIterator for &'a StateSet<T> {
     }
 }
 
-impl<T: State> Extend<T> for StateSet<T> {
+impl<T: State, const B: usize> Extend<T> for StateSet<T, B> {
     /// Extends the set with the states yielded by an iterator.
     ///
     /// # Compile Errors
@@ -749,9 +688,7 @@ impl<T: State> Extend<T> for StateSet<T> {
     }
 }
 
-#[test]
-fn state() {}
-impl<T: State> State for StateSet<T> {
+impl<T: State, const B: usize> State for StateSet<T, B> {
     ///
     /// The total number of distinct states that values of [`StateSet<T>`] can represent,
     /// i.e., 2 to the power of [`T::NUM_STATES`](State::NUM_STATES).
@@ -851,7 +788,7 @@ impl<T: State> State for StateSet<T> {
     /// let set = StateSet::<[bool; 3]>::all();
     /// ```
     #[inline]
-    fn all_set() -> StateSet<Self> {
+    fn all_set<const B2: usize>() -> StateSet<Self, B2> {
         !StateSet::new()
     }
 }
@@ -903,7 +840,7 @@ mod test {
     #[cfg(feature = "std")]
     #[test]
     fn debug() {
-        assert_eq!(format!("{:?}", StateSet::<bool>::new()), "{}");
+        assert_eq!(format!("{:?}", bool::empty_set()), "{}");
         assert_eq!(format!("{:?}", state_set![false]), "{false}");
         assert_eq!(format!("{:?}", state_set![true]), "{true}");
         assert_eq!(format!("{:?}", bool::all_set()), "{false, true}");
@@ -911,6 +848,7 @@ mod test {
 
     #[test]
     fn is_all_overflow() {
+        let p: [u8; <[bool; 10]>::BYTES as usize];
         let set = StateSet::<[bool; 10]>::new();
         assert!(!set.is_all());
     }
@@ -932,12 +870,6 @@ mod test {
     }
 
     #[test]
-    fn try_from_overflow() {
-        assert!(StateSet::<[bool; 6]>::try_from(u64::MAX).is_ok_and(|set| set.is_all()));
-        assert!(StateSet::<[bool; 10]>::try_from(u64::MAX).is_ok_and(|set| set.len() == 64));
-    }
-
-    #[test]
     fn state_overflow() {
         assert_eq!(StateSet::<[bool; 5]>::from_index(0), Some(state_set![]));
     }
@@ -945,13 +877,13 @@ mod test {
     #[test]
     fn send() {
         fn assert_send<T: Send>() {}
-        assert_send::<StateSet<bool>>();
+        assert_send::<StateSet<bool, 1>>();
     }
 
     #[test]
     fn sync() {
         fn assert_sync<T: Sync>() {}
-        assert_sync::<StateSet<bool>>();
+        assert_sync::<StateSet<bool, 1>>();
     }
 
     #[cfg(all(feature = "serde", feature = "std"))]
@@ -1012,6 +944,7 @@ mod test {
                 }
             }
         }
+
         let set = state_set![Foo::A, Foo::B];
         let _set_a = set;
         let _set_b = set;
